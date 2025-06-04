@@ -9,10 +9,15 @@ import { VehicleForm } from "@/components/VehicleForm";
 
 interface Vehicle {
   id: string;
-  make: string;
-  model: string;
-  year: number;
   licensePlate: string;
+  vehicleOwner: string;
+  fuelType: "CNG" | "Diesel" | "Bio Diesel" | "Other";
+  financed: boolean;
+  nationalPermitExpiry: string;
+  puccExpiry: string;
+  permitExpiry: string;
+  insuranceExpiry: string;
+  emiDate?: string;
   status: "active" | "maintenance" | "inactive";
   mileage: number;
   lastService: string;
@@ -21,30 +26,44 @@ interface Vehicle {
 const sampleVehicles: Vehicle[] = [
   {
     id: "1",
-    make: "Ford",
-    model: "Transit",
-    year: 2022,
     licensePlate: "TRK-001",
+    vehicleOwner: "John Doe",
+    fuelType: "Diesel",
+    financed: true,
+    nationalPermitExpiry: "2025-12-31",
+    puccExpiry: "2024-12-15",
+    permitExpiry: "2025-06-30",
+    insuranceExpiry: "2025-03-15",
+    emiDate: "15",
     status: "active",
     mileage: 45000,
     lastService: "2024-05-15"
   },
   {
     id: "2",
-    make: "Mercedes",
-    model: "Sprinter",
-    year: 2021,
     licensePlate: "TRK-002",
+    vehicleOwner: "Jane Smith",
+    fuelType: "CNG",
+    financed: false,
+    nationalPermitExpiry: "2025-08-20",
+    puccExpiry: "2024-11-10",
+    permitExpiry: "2025-04-25",
+    insuranceExpiry: "2025-01-30",
     status: "maintenance",
     mileage: 67000,
     lastService: "2024-05-20"
   },
   {
     id: "3",
-    make: "Volvo",
-    model: "FH16",
-    year: 2023,
     licensePlate: "TRK-003",
+    vehicleOwner: "Mike Johnson",
+    fuelType: "Bio Diesel",
+    financed: true,
+    nationalPermitExpiry: "2026-02-14",
+    puccExpiry: "2025-01-05",
+    permitExpiry: "2025-09-18",
+    insuranceExpiry: "2025-07-22",
+    emiDate: "5",
     status: "active",
     mileage: 23000,
     lastService: "2024-06-01"
@@ -58,9 +77,9 @@ const Vehicles = () => {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
   const filteredVehicles = vehicles.filter(vehicle =>
-    vehicle.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase())
+    vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.vehicleOwner.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.fuelType.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -74,6 +93,38 @@ const Vehicles = () => {
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const getFuelTypeColor = (fuelType: string) => {
+    switch (fuelType) {
+      case "CNG":
+        return "bg-blue-100 text-blue-800";
+      case "Diesel":
+        return "bg-gray-100 text-gray-800";
+      case "Bio Diesel":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-purple-100 text-purple-800";
+    }
+  };
+
+  const isExpiryNear = (expiryDate: string) => {
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 3600 * 24));
+    return daysUntilExpiry <= 30 && daysUntilExpiry >= 0;
+  };
+
+  const isExpired = (expiryDate: string) => {
+    const expiry = new Date(expiryDate);
+    const today = new Date();
+    return expiry < today;
+  };
+
+  const getExpiryStatus = (expiryDate: string) => {
+    if (isExpired(expiryDate)) return "text-red-600 font-semibold";
+    if (isExpiryNear(expiryDate)) return "text-orange-600 font-semibold";
+    return "text-gray-600";
   };
 
   const handleAddVehicle = (vehicleData: Omit<Vehicle, "id">) => {
@@ -134,16 +185,57 @@ const Vehicles = () => {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">{vehicle.make} {vehicle.model}</CardTitle>
-                  <p className="text-sm text-gray-500">{vehicle.year} • {vehicle.licensePlate}</p>
+                  <CardTitle className="text-lg">{vehicle.licensePlate}</CardTitle>
+                  <p className="text-sm text-gray-500">Owner: {vehicle.vehicleOwner}</p>
                 </div>
-                <Badge className={getStatusColor(vehicle.status)}>
-                  {vehicle.status}
-                </Badge>
+                <div className="flex flex-col gap-1">
+                  <Badge className={getStatusColor(vehicle.status)}>
+                    {vehicle.status}
+                  </Badge>
+                  <Badge className={getFuelTypeColor(vehicle.fuelType)}>
+                    {vehicle.fuelType}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Financed:</span>
+                  <span className={vehicle.financed ? "text-orange-600" : "text-green-600"}>
+                    {vehicle.financed ? "Yes" : "No"}
+                  </span>
+                </div>
+                {vehicle.financed && vehicle.emiDate && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">EMI Date:</span>
+                    <span>{vehicle.emiDate} of every month</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">National Permit:</span>
+                  <span className={getExpiryStatus(vehicle.nationalPermitExpiry)}>
+                    {vehicle.nationalPermitExpiry}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">PUCC:</span>
+                  <span className={getExpiryStatus(vehicle.puccExpiry)}>
+                    {vehicle.puccExpiry}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Permit:</span>
+                  <span className={getExpiryStatus(vehicle.permitExpiry)}>
+                    {vehicle.permitExpiry}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Insurance:</span>
+                  <span className={getExpiryStatus(vehicle.insuranceExpiry)}>
+                    {vehicle.insuranceExpiry}
+                  </span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Mileage:</span>
                   <span>{vehicle.mileage.toLocaleString()} miles</span>
