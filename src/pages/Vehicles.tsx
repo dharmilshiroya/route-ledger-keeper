@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +22,7 @@ interface Vehicle {
   lastService: string;
 }
 
+// ... keep existing code (sampleVehicles array)
 const sampleVehicles: Vehicle[] = [
   {
     id: "1",
@@ -36,7 +36,7 @@ const sampleVehicles: Vehicle[] = [
     insuranceExpiry: "2025-03-15",
     emiDate: "15",
     status: "active",
-    mileage: 45000,
+    mileage: 45000.5,
     lastService: "2024-05-15"
   },
   {
@@ -50,7 +50,7 @@ const sampleVehicles: Vehicle[] = [
     permitExpiry: "2025-04-25",
     insuranceExpiry: "2025-01-30",
     status: "maintenance",
-    mileage: 67000,
+    mileage: 67000.25,
     lastService: "2024-05-20"
   },
   {
@@ -76,6 +76,7 @@ const Vehicles = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
+  // ... keep existing code (filteredVehicles, getStatusColor, getFuelTypeColor, expiry functions)
   const filteredVehicles = vehicles.filter(vehicle =>
     vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vehicle.vehicleOwner.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,6 +128,14 @@ const Vehicles = () => {
     return "text-gray-600";
   };
 
+  // Helper function to display value or "NA"
+  const displayValue = (value: string | number | undefined) => {
+    if (value === undefined || value === null || value === "") {
+      return "NA";
+    }
+    return value;
+  };
+
   const handleAddVehicle = (vehicleData: Omit<Vehicle, "id">) => {
     const newVehicle = {
       ...vehicleData,
@@ -152,6 +161,7 @@ const Vehicles = () => {
 
   return (
     <div className="space-y-6">
+      {/* ... keep existing code (header and search sections) */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vehicles</h1>
@@ -185,8 +195,8 @@ const Vehicles = () => {
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">{vehicle.licensePlate}</CardTitle>
-                  <p className="text-sm text-gray-500">Owner: {vehicle.vehicleOwner}</p>
+                  <CardTitle className="text-lg">{displayValue(vehicle.licensePlate)}</CardTitle>
+                  <p className="text-sm text-gray-500">Owner: {displayValue(vehicle.vehicleOwner)}</p>
                 </div>
                 <div className="flex flex-col gap-1">
                   <Badge className={getStatusColor(vehicle.status)}>
@@ -206,43 +216,43 @@ const Vehicles = () => {
                     {vehicle.financed ? "Yes" : "No"}
                   </span>
                 </div>
-                {vehicle.financed && vehicle.emiDate && (
+                {vehicle.financed && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">EMI Date:</span>
-                    <span>{vehicle.emiDate} of every month</span>
+                    <span>{displayValue(vehicle.emiDate)} {vehicle.emiDate ? "of every month" : ""}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">National Permit:</span>
-                  <span className={getExpiryStatus(vehicle.nationalPermitExpiry)}>
-                    {vehicle.nationalPermitExpiry}
+                  <span className={vehicle.nationalPermitExpiry ? getExpiryStatus(vehicle.nationalPermitExpiry) : "text-gray-600"}>
+                    {displayValue(vehicle.nationalPermitExpiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">PUCC:</span>
-                  <span className={getExpiryStatus(vehicle.puccExpiry)}>
-                    {vehicle.puccExpiry}
+                  <span className={vehicle.puccExpiry ? getExpiryStatus(vehicle.puccExpiry) : "text-gray-600"}>
+                    {displayValue(vehicle.puccExpiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Permit:</span>
-                  <span className={getExpiryStatus(vehicle.permitExpiry)}>
-                    {vehicle.permitExpiry}
+                  <span className={vehicle.permitExpiry ? getExpiryStatus(vehicle.permitExpiry) : "text-gray-600"}>
+                    {displayValue(vehicle.permitExpiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Insurance:</span>
-                  <span className={getExpiryStatus(vehicle.insuranceExpiry)}>
-                    {vehicle.insuranceExpiry}
+                  <span className={vehicle.insuranceExpiry ? getExpiryStatus(vehicle.insuranceExpiry) : "text-gray-600"}>
+                    {displayValue(vehicle.insuranceExpiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Mileage:</span>
-                  <span>{vehicle.mileage.toLocaleString()} miles</span>
+                  <span>{vehicle.mileage ? vehicle.mileage.toLocaleString() + " miles" : "NA"}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Last Service:</span>
-                  <span>{vehicle.lastService}</span>
+                  <span>{displayValue(vehicle.lastService)}</span>
                 </div>
               </div>
               <div className="flex space-x-2 mt-4">

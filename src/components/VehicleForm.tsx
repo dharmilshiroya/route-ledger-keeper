@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -202,8 +201,9 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
                 <Input
                   id="mileage"
                   type="number"
-                  value={formData.mileage}
-                  onChange={(e) => setFormData({ ...formData, mileage: parseInt(e.target.value) })}
+                  step="0.1"
+                  value={formData.mileage || ""}
+                  onChange={(e) => setFormData({ ...formData, mileage: parseFloat(e.target.value) || 0 })}
                   required
                 />
               </div>
