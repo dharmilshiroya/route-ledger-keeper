@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 interface Expense {
   id: string;
-  type: "fuel" | "maintenance" | "insurance" | "tolls" | "other";
+  type: string;
   amount: number;
   description: string;
   vehicle_id: string;

@@ -16,7 +16,7 @@ interface Driver {
   email: string;
   phone: string;
   license_number: string;
-  status: "active" | "inactive" | "suspended";
+  status: string;
   experience: number;
   hire_date: string;
 }
@@ -141,7 +141,7 @@ const Drivers = () => {
                       {driver.status}
                     </Badge>
                     <div className="text-sm text-gray-500 mt-1">
-                      {driver.experience} years experience
+                      {driver.experience || 0} years experience
                     </div>
                   </div>
                   
@@ -164,7 +164,7 @@ const Drivers = () => {
                   </div>
                   <div>
                     <span className="text-gray-500">Hire Date:</span>
-                    <span className="ml-2 font-medium">{driver.hire_date}</span>
+                    <span className="ml-2 font-medium">{driver.hire_date || "Not set"}</span>
                   </div>
                 </div>
               </div>

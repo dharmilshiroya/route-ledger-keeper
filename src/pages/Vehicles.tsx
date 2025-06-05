@@ -14,14 +14,29 @@ interface Vehicle {
   id: string;
   license_plate: string;
   vehicle_owner: string;
-  fuel_type: "CNG" | "Diesel" | "Bio Diesel" | "Other";
+  fuel_type: string;
   financed: boolean;
   national_permit_expiry: string;
   pucc_expiry: string;
   permit_expiry: string;
   insurance_expiry: string;
   emi_date?: string;
-  status: "active" | "maintenance" | "inactive";
+  status: string;
+  mileage: number;
+  last_service: string;
+}
+
+interface VehicleFormData {
+  license_plate: string;
+  vehicle_owner: string;
+  fuel_type: string;
+  financed: boolean;
+  national_permit_expiry: string;
+  pucc_expiry: string;
+  permit_expiry: string;
+  insurance_expiry: string;
+  emi_date?: string;
+  status: string;
   mileage: number;
   last_service: string;
 }
@@ -119,7 +134,7 @@ const Vehicles = () => {
     return value;
   };
 
-  const handleAddVehicle = async (vehicleData: Omit<Vehicle, "id">) => {
+  const handleAddVehicle = async (vehicleData: VehicleFormData) => {
     try {
       const { error } = await supabase
         .from('vehicles')
@@ -139,7 +154,7 @@ const Vehicles = () => {
     }
   };
 
-  const handleEditVehicle = async (vehicleData: Omit<Vehicle, "id">) => {
+  const handleEditVehicle = async (vehicleData: VehicleFormData) => {
     if (!editingVehicle) return;
     
     try {
@@ -177,6 +192,24 @@ const Vehicles = () => {
       console.error('Error deleting vehicle:', error);
       toast.error('Failed to delete vehicle');
     }
+  };
+
+  // Convert Vehicle to VehicleFormData format for editing
+  const convertToFormData = (vehicle: Vehicle): VehicleFormData => {
+    return {
+      license_plate: vehicle.license_plate,
+      vehicle_owner: vehicle.vehicle_owner,
+      fuel_type: vehicle.fuel_type,
+      financed: vehicle.financed,
+      national_permit_expiry: vehicle.national_permit_expiry,
+      pucc_expiry: vehicle.pucc_expiry,
+      permit_expiry: vehicle.permit_expiry,
+      insurance_expiry: vehicle.insurance_expiry,
+      emi_date: vehicle.emi_date,
+      status: vehicle.status,
+      mileage: vehicle.mileage,
+      last_service: vehicle.last_service
+    };
   };
 
   if (loading) {
@@ -317,7 +350,7 @@ const Vehicles = () => {
 
       {showForm && (
         <VehicleForm
-          vehicle={editingVehicle}
+          vehicle={editingVehicle ? convertToFormData(editingVehicle) : undefined}
           onSubmit={editingVehicle ? handleEditVehicle : handleAddVehicle}
           onCancel={() => {
             setShowForm(false);

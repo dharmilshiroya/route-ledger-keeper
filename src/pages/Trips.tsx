@@ -16,7 +16,7 @@ interface Trip {
   origin: string;
   destination: string;
   distance: number;
-  status: "scheduled" | "in-progress" | "completed" | "cancelled";
+  status: string;
   start_time: string;
   end_time?: string;
   revenue: number;
@@ -148,7 +148,7 @@ const Trips = () => {
                 <div className="text-right">
                   <div className="flex items-center space-x-1 text-green-600 font-semibold">
                     <DollarSign className="h-4 w-4" />
-                    <span>${trip.revenue}</span>
+                    <span>${trip.revenue || 0}</span>
                   </div>
                 </div>
               </div>
@@ -161,7 +161,7 @@ const Trips = () => {
                     <div className="text-sm text-gray-600">
                       {trip.origin} → {trip.destination}
                     </div>
-                    <div className="text-xs text-gray-500">{trip.distance} miles</div>
+                    <div className="text-xs text-gray-500">{trip.distance || 0} miles</div>
                   </div>
                 </div>
 
