@@ -1,25 +1,106 @@
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Users, Car, DollarSign } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-const monthlyData = [
-  { month: "Jan", revenue: 45000, expenses: 30000 },
-  { month: "Feb", revenue: 52000, expenses: 32000 },
-  { month: "Mar", revenue: 48000, expenses: 29000 },
-  { month: "Apr", revenue: 55000, expenses: 35000 },
-  { month: "May", revenue: 60000, expenses: 38000 },
-  { month: "Jun", revenue: 58000, expenses: 36000 },
-];
-
-const expenseBreakdown = [
-  { name: "Fuel", value: 45, color: "#3b82f6" },
-  { name: "Maintenance", value: 25, color: "#ef4444" },
-  { name: "Insurance", value: 15, color: "#10b981" },
-  { name: "Other", value: 15, color: "#f59e0b" },
-];
+interface DashboardStats {
+  totalVehicles: number;
+  activeDrivers: number;
+  activeTrips: number;
+  monthlyRevenue: number;
+}
 
 const Dashboard = () => {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalVehicles: 0,
+    activeDrivers: 0,
+    activeTrips: 0,
+    monthlyRevenue: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchDashboardStats();
+    }
+  }, [user]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch vehicles count
+      const { count: vehiclesCount } = await supabase
+        .from('vehicles')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch active drivers count
+      const { count: driversCount } = await supabase
+        .from('drivers')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
+
+      // Fetch active trips count
+      const { count: tripsCount } = await supabase
+        .from('trips')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'in-progress');
+
+      // Fetch this month's revenue
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { data: tripsData } = await supabase
+        .from('trips')
+        .select('revenue')
+        .eq('status', 'completed')
+        .gte('created_at', startOfMonth.toISOString());
+
+      const monthlyRevenue = tripsData?.reduce((sum, trip) => sum + (trip.revenue || 0), 0) || 0;
+
+      setStats({
+        totalVehicles: vehiclesCount || 0,
+        activeDrivers: driversCount || 0,
+        activeTrips: tripsCount || 0,
+        monthlyRevenue
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sample data for charts (in a real app, this would come from your database)
+  const monthlyData = [
+    { month: "Jan", revenue: 45000, expenses: 30000 },
+    { month: "Feb", revenue: 52000, expenses: 32000 },
+    { month: "Mar", revenue: 48000, expenses: 29000 },
+    { month: "Apr", revenue: 55000, expenses: 35000 },
+    { month: "May", revenue: 60000, expenses: 38000 },
+    { month: "Jun", revenue: stats.monthlyRevenue, expenses: 36000 },
+  ];
+
+  const expenseBreakdown = [
+    { name: "Fuel", value: 45, color: "#3b82f6" },
+    { name: "Maintenance", value: 25, color: "#ef4444" },
+    { name: "Insurance", value: 15, color: "#10b981" },
+    { name: "Other", value: 15, color: "#f59e0b" },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -27,7 +108,6 @@ const Dashboard = () => {
         <p className="text-gray-600">Overview of your transportation operations</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -35,8 +115,8 @@ const Dashboard = () => {
             <Truck className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground">+2 from last month</p>
+            <div className="text-2xl font-bold">{stats.totalVehicles}</div>
+            <p className="text-xs text-muted-foreground">Fleet size</p>
           </CardContent>
         </Card>
 
@@ -46,8 +126,8 @@ const Dashboard = () => {
             <Users className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">18</div>
-            <p className="text-xs text-muted-foreground">+1 from last month</p>
+            <div className="text-2xl font-bold">{stats.activeDrivers}</div>
+            <p className="text-xs text-muted-foreground">Available workforce</p>
           </CardContent>
         </Card>
 
@@ -57,7 +137,7 @@ const Dashboard = () => {
             <Car className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{stats.activeTrips}</div>
             <p className="text-xs text-muted-foreground">Currently in progress</p>
           </CardContent>
         </Card>
@@ -68,13 +148,12 @@ const Dashboard = () => {
             <DollarSign className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$58,000</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
+            <div className="text-2xl font-bold">${stats.monthlyRevenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -120,7 +199,6 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Recent Activity */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
@@ -130,28 +208,10 @@ const Dashboard = () => {
             <div className="flex items-center space-x-4 p-3 bg-blue-50 rounded-lg">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               <div className="flex-1">
-                <p className="text-sm font-medium">New trip started</p>
-                <p className="text-xs text-gray-500">Driver John Smith - Route NYC to Boston</p>
+                <p className="text-sm font-medium">Welcome to TransportPro!</p>
+                <p className="text-xs text-gray-500">Start by adding your vehicles and drivers</p>
               </div>
-              <div className="text-xs text-gray-500">2 hours ago</div>
-            </div>
-            
-            <div className="flex items-center space-x-4 p-3 bg-green-50 rounded-lg">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Trip completed</p>
-                <p className="text-xs text-gray-500">Driver Sarah Johnson - Route Chicago to Detroit</p>
-              </div>
-              <div className="text-xs text-gray-500">4 hours ago</div>
-            </div>
-            
-            <div className="flex items-center space-x-4 p-3 bg-orange-50 rounded-lg">
-              <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Maintenance scheduled</p>
-                <p className="text-xs text-gray-500">Vehicle TRK-001 - Oil change due</p>
-              </div>
-              <div className="text-xs text-gray-500">6 hours ago</div>
+              <div className="text-xs text-gray-500">Now</div>
             </div>
           </div>
         </CardContent>

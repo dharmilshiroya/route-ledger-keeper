@@ -1,64 +1,60 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, Search, Edit, Trash2, Phone, Mail } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Driver {
   id: string;
   name: string;
   email: string;
   phone: string;
-  licenseNumber: string;
+  license_number: string;
   status: "active" | "inactive" | "suspended";
   experience: number;
-  hireDate: string;
+  hire_date: string;
 }
 
-const sampleDrivers: Driver[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    email: "john.smith@email.com",
-    phone: "+1 (555) 123-4567",
-    licenseNumber: "DL123456789",
-    status: "active",
-    experience: 5,
-    hireDate: "2019-03-15"
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    email: "sarah.johnson@email.com",
-    phone: "+1 (555) 987-6543",
-    licenseNumber: "DL987654321",
-    status: "active",
-    experience: 8,
-    hireDate: "2016-07-22"
-  },
-  {
-    id: "3",
-    name: "Mike Davis",
-    email: "mike.davis@email.com",
-    phone: "+1 (555) 456-7890",
-    licenseNumber: "DL456789123",
-    status: "inactive",
-    experience: 3,
-    hireDate: "2021-01-10"
-  }
-];
-
 const Drivers = () => {
-  const [drivers, setDrivers] = useState<Driver[]>(sampleDrivers);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchDrivers();
+    }
+  }, [user]);
+
+  const fetchDrivers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('drivers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDrivers(data || []);
+    } catch (error) {
+      console.error('Error fetching drivers:', error);
+      toast.error('Failed to load drivers');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredDrivers = drivers.filter(driver =>
     driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     driver.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    driver.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    driver.license_number.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -78,6 +74,14 @@ const Drivers = () => {
     return name.split(" ").map(n => n[0]).join("").toUpperCase();
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -91,7 +95,6 @@ const Drivers = () => {
         </Button>
       </div>
 
-      {/* Search */}
       <Card>
         <CardContent className="pt-6">
           <div className="relative">
@@ -106,7 +109,6 @@ const Drivers = () => {
         </CardContent>
       </Card>
 
-      {/* Drivers List */}
       <div className="space-y-4">
         {filteredDrivers.map((driver) => (
           <Card key={driver.id} className="hover:shadow-lg transition-shadow">
@@ -158,11 +160,11 @@ const Drivers = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500">License Number:</span>
-                    <span className="ml-2 font-medium">{driver.licenseNumber}</span>
+                    <span className="ml-2 font-medium">{driver.license_number}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Hire Date:</span>
-                    <span className="ml-2 font-medium">{driver.hireDate}</span>
+                    <span className="ml-2 font-medium">{driver.hire_date}</span>
                   </div>
                 </div>
               </div>
@@ -170,6 +172,14 @@ const Drivers = () => {
           </Card>
         ))}
       </div>
+
+      {filteredDrivers.length === 0 && !loading && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">No drivers found. Add your first driver to get started.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

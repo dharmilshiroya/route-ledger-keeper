@@ -1,66 +1,62 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Receipt, TrendingUp, Fuel, Wrench } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Expense {
   id: string;
   type: "fuel" | "maintenance" | "insurance" | "tolls" | "other";
   amount: number;
   description: string;
-  vehicle: string;
+  vehicle_id: string;
   date: string;
   receipt?: string;
+  vehicles?: { license_plate: string };
 }
 
-const sampleExpenses: Expense[] = [
-  {
-    id: "1",
-    type: "fuel",
-    amount: 85.50,
-    description: "Fuel fill-up at Shell Station",
-    vehicle: "TRK-001",
-    date: "2024-06-04",
-    receipt: "receipt-001.jpg"
-  },
-  {
-    id: "2",
-    type: "maintenance",
-    amount: 245.00,
-    description: "Oil change and tire rotation",
-    vehicle: "TRK-002",
-    date: "2024-06-03",
-    receipt: "receipt-002.jpg"
-  },
-  {
-    id: "3",
-    type: "tolls",
-    amount: 12.75,
-    description: "Highway toll - Route 95",
-    vehicle: "TRK-001",
-    date: "2024-06-03"
-  },
-  {
-    id: "4",
-    type: "insurance",
-    amount: 180.00,
-    description: "Monthly vehicle insurance",
-    vehicle: "TRK-003",
-    date: "2024-06-01"
-  }
-];
-
 const Expenses = () => {
-  const [expenses, setExpenses] = useState<Expense[]>(sampleExpenses);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchExpenses();
+    }
+  }, [user]);
+
+  const fetchExpenses = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          vehicles(license_plate)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setExpenses(data || []);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      toast.error('Failed to load expenses');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredExpenses = expenses.filter(expense => {
     const matchesSearch = expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         expense.vehicle.toLowerCase().includes(searchTerm.toLowerCase());
+                         expense.vehicles?.license_plate?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === "all" || expense.type === filterType;
     return matchesSearch && matchesType;
   });
@@ -97,6 +93,14 @@ const Expenses = () => {
 
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -110,7 +114,6 @@ const Expenses = () => {
         </Button>
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -167,7 +170,6 @@ const Expenses = () => {
         </Card>
       </div>
 
-      {/* Search and Filter */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
@@ -197,7 +199,6 @@ const Expenses = () => {
         </CardContent>
       </Card>
 
-      {/* Expenses List */}
       <div className="space-y-4">
         {filteredExpenses.map((expense) => (
           <Card key={expense.id} className="hover:shadow-lg transition-shadow">
@@ -210,7 +211,7 @@ const Expenses = () => {
                   <div>
                     <h3 className="font-semibold">{expense.description}</h3>
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>Vehicle: {expense.vehicle}</span>
+                      <span>Vehicle: {expense.vehicles?.license_plate || "Not assigned"}</span>
                       <span>Date: {expense.date}</span>
                       {expense.receipt && (
                         <span className="flex items-center space-x-1">
@@ -235,6 +236,14 @@ const Expenses = () => {
           </Card>
         ))}
       </div>
+
+      {filteredExpenses.length === 0 && !loading && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">No expenses found. Add your first expense to get started.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

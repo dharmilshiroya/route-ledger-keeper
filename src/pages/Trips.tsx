@@ -1,68 +1,66 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, MapPin, Clock, DollarSign } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Trip {
   id: string;
-  driver: string;
-  vehicle: string;
+  driver_id: string;
+  vehicle_id: string;
   origin: string;
   destination: string;
   distance: number;
   status: "scheduled" | "in-progress" | "completed" | "cancelled";
-  startTime: string;
-  endTime?: string;
+  start_time: string;
+  end_time?: string;
   revenue: number;
+  drivers?: { name: string };
+  vehicles?: { license_plate: string };
 }
 
-const sampleTrips: Trip[] = [
-  {
-    id: "1",
-    driver: "John Smith",
-    vehicle: "TRK-001",
-    origin: "New York, NY",
-    destination: "Boston, MA",
-    distance: 215,
-    status: "in-progress",
-    startTime: "2024-06-04T08:00:00",
-    revenue: 1200
-  },
-  {
-    id: "2",
-    driver: "Sarah Johnson",
-    vehicle: "TRK-002",
-    origin: "Chicago, IL",
-    destination: "Detroit, MI",
-    distance: 283,
-    status: "completed",
-    startTime: "2024-06-03T09:30:00",
-    endTime: "2024-06-03T14:45:00",
-    revenue: 1500
-  },
-  {
-    id: "3",
-    driver: "Mike Davis",
-    vehicle: "TRK-003",
-    origin: "Los Angeles, CA",
-    destination: "San Francisco, CA",
-    distance: 382,
-    status: "scheduled",
-    startTime: "2024-06-05T06:00:00",
-    revenue: 1800
-  }
-];
-
 const Trips = () => {
-  const [trips, setTrips] = useState<Trip[]>(sampleTrips);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchTrips();
+    }
+  }, [user]);
+
+  const fetchTrips = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          drivers(name),
+          vehicles(license_plate)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTrips(data || []);
+    } catch (error) {
+      console.error('Error fetching trips:', error);
+      toast.error('Failed to load trips');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredTrips = trips.filter(trip =>
-    trip.driver.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.vehicle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.drivers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.vehicles?.license_plate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     trip.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
     trip.destination.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -83,6 +81,7 @@ const Trips = () => {
   };
 
   const formatDateTime = (dateString: string) => {
+    if (!dateString) return "Not set";
     return new Date(dateString).toLocaleString();
   };
 
@@ -93,6 +92,14 @@ const Trips = () => {
     const diffHours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60) * 10) / 10;
     return `${diffHours} hours`;
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -107,7 +114,6 @@ const Trips = () => {
         </Button>
       </div>
 
-      {/* Search */}
       <Card>
         <CardContent className="pt-6">
           <div className="relative">
@@ -122,7 +128,6 @@ const Trips = () => {
         </CardContent>
       </Card>
 
-      {/* Trips List */}
       <div className="space-y-4">
         {filteredTrips.map((trip) => (
           <Card key={trip.id} className="hover:shadow-lg transition-shadow">
@@ -130,14 +135,14 @@ const Trips = () => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-semibold">Trip #{trip.id}</h3>
+                    <h3 className="text-lg font-semibold">Trip #{trip.id.slice(0, 8)}</h3>
                     <Badge className={getStatusColor(trip.status)}>
                       {trip.status.replace("-", " ")}
                     </Badge>
                   </div>
                   <div className="text-sm text-gray-600">
-                    Driver: <span className="font-medium">{trip.driver}</span> • 
-                    Vehicle: <span className="font-medium">{trip.vehicle}</span>
+                    Driver: <span className="font-medium">{trip.drivers?.name || "Not assigned"}</span> • 
+                    Vehicle: <span className="font-medium">{trip.vehicles?.license_plate || "Not assigned"}</span>
                   </div>
                 </div>
                 <div className="text-right">
@@ -165,15 +170,15 @@ const Trips = () => {
                   <div>
                     <div className="font-medium text-sm">Schedule</div>
                     <div className="text-sm text-gray-600">
-                      Started: {formatDateTime(trip.startTime)}
+                      Started: {formatDateTime(trip.start_time)}
                     </div>
-                    {trip.endTime && (
+                    {trip.end_time && (
                       <div className="text-sm text-gray-600">
-                        Ended: {formatDateTime(trip.endTime)}
+                        Ended: {formatDateTime(trip.end_time)}
                       </div>
                     )}
                     <div className="text-xs text-gray-500">
-                      Duration: {calculateDuration(trip.startTime, trip.endTime)}
+                      Duration: {calculateDuration(trip.start_time, trip.end_time)}
                     </div>
                   </div>
                 </div>
@@ -198,6 +203,14 @@ const Trips = () => {
           </Card>
         ))}
       </div>
+
+      {filteredTrips.length === 0 && !loading && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">No trips found. Schedule your first trip to get started.</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

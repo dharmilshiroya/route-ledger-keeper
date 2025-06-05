@@ -1,86 +1,67 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import { VehicleForm } from "@/components/VehicleForm";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Vehicle {
   id: string;
-  licensePlate: string;
-  vehicleOwner: string;
-  fuelType: "CNG" | "Diesel" | "Bio Diesel" | "Other";
+  license_plate: string;
+  vehicle_owner: string;
+  fuel_type: "CNG" | "Diesel" | "Bio Diesel" | "Other";
   financed: boolean;
-  nationalPermitExpiry: string;
-  puccExpiry: string;
-  permitExpiry: string;
-  insuranceExpiry: string;
-  emiDate?: string;
+  national_permit_expiry: string;
+  pucc_expiry: string;
+  permit_expiry: string;
+  insurance_expiry: string;
+  emi_date?: string;
   status: "active" | "maintenance" | "inactive";
   mileage: number;
-  lastService: string;
+  last_service: string;
 }
 
-// ... keep existing code (sampleVehicles array)
-const sampleVehicles: Vehicle[] = [
-  {
-    id: "1",
-    licensePlate: "TRK-001",
-    vehicleOwner: "John Doe",
-    fuelType: "Diesel",
-    financed: true,
-    nationalPermitExpiry: "2025-12-31",
-    puccExpiry: "2024-12-15",
-    permitExpiry: "2025-06-30",
-    insuranceExpiry: "2025-03-15",
-    emiDate: "15",
-    status: "active",
-    mileage: 45000.5,
-    lastService: "2024-05-15"
-  },
-  {
-    id: "2",
-    licensePlate: "TRK-002",
-    vehicleOwner: "Jane Smith",
-    fuelType: "CNG",
-    financed: false,
-    nationalPermitExpiry: "2025-08-20",
-    puccExpiry: "2024-11-10",
-    permitExpiry: "2025-04-25",
-    insuranceExpiry: "2025-01-30",
-    status: "maintenance",
-    mileage: 67000.25,
-    lastService: "2024-05-20"
-  },
-  {
-    id: "3",
-    licensePlate: "TRK-003",
-    vehicleOwner: "Mike Johnson",
-    fuelType: "Bio Diesel",
-    financed: true,
-    nationalPermitExpiry: "2026-02-14",
-    puccExpiry: "2025-01-05",
-    permitExpiry: "2025-09-18",
-    insuranceExpiry: "2025-07-22",
-    emiDate: "5",
-    status: "active",
-    mileage: 23000,
-    lastService: "2024-06-01"
-  }
-];
-
 const Vehicles = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(sampleVehicles);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-  // ... keep existing code (filteredVehicles, getStatusColor, getFuelTypeColor, expiry functions)
+  useEffect(() => {
+    if (user) {
+      fetchVehicles();
+    }
+  }, [user]);
+
+  const fetchVehicles = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setVehicles(data || []);
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+      toast.error('Failed to load vehicles');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredVehicles = vehicles.filter(vehicle =>
-    vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.vehicleOwner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.fuelType.toLowerCase().includes(searchTerm.toLowerCase())
+    vehicle.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.vehicle_owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.fuel_type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -110,6 +91,7 @@ const Vehicles = () => {
   };
 
   const isExpiryNear = (expiryDate: string) => {
+    if (!expiryDate) return false;
     const expiry = new Date(expiryDate);
     const today = new Date();
     const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 3600 * 24));
@@ -117,18 +99,19 @@ const Vehicles = () => {
   };
 
   const isExpired = (expiryDate: string) => {
+    if (!expiryDate) return false;
     const expiry = new Date(expiryDate);
     const today = new Date();
     return expiry < today;
   };
 
   const getExpiryStatus = (expiryDate: string) => {
+    if (!expiryDate) return "text-gray-600";
     if (isExpired(expiryDate)) return "text-red-600 font-semibold";
     if (isExpiryNear(expiryDate)) return "text-orange-600 font-semibold";
     return "text-gray-600";
   };
 
-  // Helper function to display value or "NA"
   const displayValue = (value: string | number | undefined) => {
     if (value === undefined || value === null || value === "") {
       return "NA";
@@ -136,32 +119,76 @@ const Vehicles = () => {
     return value;
   };
 
-  const handleAddVehicle = (vehicleData: Omit<Vehicle, "id">) => {
-    const newVehicle = {
-      ...vehicleData,
-      id: (vehicles.length + 1).toString()
-    };
-    setVehicles([...vehicles, newVehicle]);
-    setShowForm(false);
-  };
+  const handleAddVehicle = async (vehicleData: Omit<Vehicle, "id">) => {
+    try {
+      const { error } = await supabase
+        .from('vehicles')
+        .insert([{
+          ...vehicleData,
+          user_id: user?.id
+        }]);
 
-  const handleEditVehicle = (vehicleData: Omit<Vehicle, "id">) => {
-    if (editingVehicle) {
-      setVehicles(vehicles.map(v => 
-        v.id === editingVehicle.id ? { ...vehicleData, id: editingVehicle.id } : v
-      ));
-      setEditingVehicle(null);
+      if (error) throw error;
+      
+      toast.success('Vehicle added successfully');
       setShowForm(false);
+      fetchVehicles();
+    } catch (error) {
+      console.error('Error adding vehicle:', error);
+      toast.error('Failed to add vehicle');
     }
   };
 
-  const handleDeleteVehicle = (id: string) => {
-    setVehicles(vehicles.filter(v => v.id !== id));
+  const handleEditVehicle = async (vehicleData: Omit<Vehicle, "id">) => {
+    if (!editingVehicle) return;
+    
+    try {
+      const { error } = await supabase
+        .from('vehicles')
+        .update(vehicleData)
+        .eq('id', editingVehicle.id);
+
+      if (error) throw error;
+
+      toast.success('Vehicle updated successfully');
+      setEditingVehicle(null);
+      setShowForm(false);
+      fetchVehicles();
+    } catch (error) {
+      console.error('Error updating vehicle:', error);
+      toast.error('Failed to update vehicle');
+    }
   };
+
+  const handleDeleteVehicle = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this vehicle?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('vehicles')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Vehicle deleted successfully');
+      fetchVehicles();
+    } catch (error) {
+      console.error('Error deleting vehicle:', error);
+      toast.error('Failed to delete vehicle');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* ... keep existing code (header and search sections) */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vehicles</h1>
@@ -173,7 +200,6 @@ const Vehicles = () => {
         </Button>
       </div>
 
-      {/* Search */}
       <Card>
         <CardContent className="pt-6">
           <div className="relative">
@@ -188,22 +214,21 @@ const Vehicles = () => {
         </CardContent>
       </Card>
 
-      {/* Vehicles Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredVehicles.map((vehicle) => (
           <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">{displayValue(vehicle.licensePlate)}</CardTitle>
-                  <p className="text-sm text-gray-500">Owner: {displayValue(vehicle.vehicleOwner)}</p>
+                  <CardTitle className="text-lg">{displayValue(vehicle.license_plate)}</CardTitle>
+                  <p className="text-sm text-gray-500">Owner: {displayValue(vehicle.vehicle_owner)}</p>
                 </div>
                 <div className="flex flex-col gap-1">
                   <Badge className={getStatusColor(vehicle.status)}>
                     {vehicle.status}
                   </Badge>
-                  <Badge className={getFuelTypeColor(vehicle.fuelType)}>
-                    {vehicle.fuelType}
+                  <Badge className={getFuelTypeColor(vehicle.fuel_type)}>
+                    {vehicle.fuel_type}
                   </Badge>
                 </div>
               </div>
@@ -216,34 +241,34 @@ const Vehicles = () => {
                     {vehicle.financed ? "Yes" : "No"}
                   </span>
                 </div>
-                {vehicle.financed && (
+                {vehicle.financed && vehicle.emi_date && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">EMI Date:</span>
-                    <span>{displayValue(vehicle.emiDate)} {vehicle.emiDate ? "of every month" : ""}</span>
+                    <span>{vehicle.emi_date} of every month</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">National Permit:</span>
-                  <span className={vehicle.nationalPermitExpiry ? getExpiryStatus(vehicle.nationalPermitExpiry) : "text-gray-600"}>
-                    {displayValue(vehicle.nationalPermitExpiry)}
+                  <span className={getExpiryStatus(vehicle.national_permit_expiry)}>
+                    {displayValue(vehicle.national_permit_expiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">PUCC:</span>
-                  <span className={vehicle.puccExpiry ? getExpiryStatus(vehicle.puccExpiry) : "text-gray-600"}>
-                    {displayValue(vehicle.puccExpiry)}
+                  <span className={getExpiryStatus(vehicle.pucc_expiry)}>
+                    {displayValue(vehicle.pucc_expiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Permit:</span>
-                  <span className={vehicle.permitExpiry ? getExpiryStatus(vehicle.permitExpiry) : "text-gray-600"}>
-                    {displayValue(vehicle.permitExpiry)}
+                  <span className={getExpiryStatus(vehicle.permit_expiry)}>
+                    {displayValue(vehicle.permit_expiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Insurance:</span>
-                  <span className={vehicle.insuranceExpiry ? getExpiryStatus(vehicle.insuranceExpiry) : "text-gray-600"}>
-                    {displayValue(vehicle.insuranceExpiry)}
+                  <span className={getExpiryStatus(vehicle.insurance_expiry)}>
+                    {displayValue(vehicle.insurance_expiry)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -252,7 +277,7 @@ const Vehicles = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Last Service:</span>
-                  <span>{displayValue(vehicle.lastService)}</span>
+                  <span>{displayValue(vehicle.last_service)}</span>
                 </div>
               </div>
               <div className="flex space-x-2 mt-4">
@@ -282,7 +307,14 @@ const Vehicles = () => {
         ))}
       </div>
 
-      {/* Vehicle Form Modal */}
+      {filteredVehicles.length === 0 && !loading && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500">No vehicles found. Add your first vehicle to get started.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {showForm && (
         <VehicleForm
           vehicle={editingVehicle}
