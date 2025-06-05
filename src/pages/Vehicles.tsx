@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -350,7 +349,7 @@ const Vehicles = () => {
 
       {showForm && (
         <VehicleForm
-          vehicle={editingVehicle ? convertToFormData(editingVehicle) : undefined}
+          vehicle={editingVehicle ? convertToFormData(editingVehicle) : null}
           onSubmit={editingVehicle ? handleEditVehicle : handleAddVehicle}
           onCancel={() => {
             setShowForm(false);

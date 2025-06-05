@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,41 +7,41 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-interface Vehicle {
-  licensePlate: string;
-  vehicleOwner: string;
-  fuelType: "CNG" | "Diesel" | "Bio Diesel" | "Other";
+interface VehicleFormData {
+  license_plate: string;
+  vehicle_owner: string;
+  fuel_type: string;
   financed: boolean;
-  nationalPermitExpiry: string;
-  puccExpiry: string;
-  permitExpiry: string;
-  insuranceExpiry: string;
-  emiDate?: string;
-  status: "active" | "maintenance" | "inactive";
+  national_permit_expiry: string;
+  pucc_expiry: string;
+  permit_expiry: string;
+  insurance_expiry: string;
+  emi_date?: string;
+  status: string;
   mileage: number;
-  lastService: string;
+  last_service: string;
 }
 
 interface VehicleFormProps {
-  vehicle?: Vehicle | null;
-  onSubmit: (vehicle: Vehicle) => void;
+  vehicle?: VehicleFormData | null;
+  onSubmit: (vehicle: VehicleFormData) => void;
   onCancel: () => void;
 }
 
 export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
-  const [formData, setFormData] = useState<Vehicle>({
-    licensePlate: vehicle?.licensePlate || "",
-    vehicleOwner: vehicle?.vehicleOwner || "",
-    fuelType: vehicle?.fuelType || "Diesel",
+  const [formData, setFormData] = useState<VehicleFormData>({
+    license_plate: vehicle?.license_plate || "",
+    vehicle_owner: vehicle?.vehicle_owner || "",
+    fuel_type: vehicle?.fuel_type || "Diesel",
     financed: vehicle?.financed || false,
-    nationalPermitExpiry: vehicle?.nationalPermitExpiry || "",
-    puccExpiry: vehicle?.puccExpiry || "",
-    permitExpiry: vehicle?.permitExpiry || "",
-    insuranceExpiry: vehicle?.insuranceExpiry || "",
-    emiDate: vehicle?.emiDate || "",
+    national_permit_expiry: vehicle?.national_permit_expiry || "",
+    pucc_expiry: vehicle?.pucc_expiry || "",
+    permit_expiry: vehicle?.permit_expiry || "",
+    insurance_expiry: vehicle?.insurance_expiry || "",
+    emi_date: vehicle?.emi_date || "",
     status: vehicle?.status || "active",
     mileage: vehicle?.mileage || 0,
-    lastService: vehicle?.lastService || ""
+    last_service: vehicle?.last_service || ""
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -58,20 +59,20 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="licensePlate">Vehicle Number</Label>
+                <Label htmlFor="license_plate">Vehicle Number</Label>
                 <Input
-                  id="licensePlate"
-                  value={formData.licensePlate}
-                  onChange={(e) => setFormData({ ...formData, licensePlate: e.target.value })}
+                  id="license_plate"
+                  value={formData.license_plate}
+                  onChange={(e) => setFormData({ ...formData, license_plate: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="vehicleOwner">Vehicle Owner</Label>
+                <Label htmlFor="vehicle_owner">Vehicle Owner</Label>
                 <Input
-                  id="vehicleOwner"
-                  value={formData.vehicleOwner}
-                  onChange={(e) => setFormData({ ...formData, vehicleOwner: e.target.value })}
+                  id="vehicle_owner"
+                  value={formData.vehicle_owner}
+                  onChange={(e) => setFormData({ ...formData, vehicle_owner: e.target.value })}
                   required
                 />
               </div>
@@ -79,11 +80,11 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="fuelType">Fuel Type</Label>
+                <Label htmlFor="fuel_type">Fuel Type</Label>
                 <Select
-                  value={formData.fuelType}
-                  onValueChange={(value: "CNG" | "Diesel" | "Bio Diesel" | "Other") => 
-                    setFormData({ ...formData, fuelType: value })
+                  value={formData.fuel_type}
+                  onValueChange={(value: string) => 
+                    setFormData({ ...formData, fuel_type: value })
                   }
                 >
                   <SelectTrigger>
@@ -118,14 +119,14 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
 
             {formData.financed && (
               <div className="space-y-2">
-                <Label htmlFor="emiDate">EMI Date (Day of Month)</Label>
+                <Label htmlFor="emi_date">EMI Date (Day of Month)</Label>
                 <Input
-                  id="emiDate"
+                  id="emi_date"
                   type="number"
                   min="1"
                   max="31"
-                  value={formData.emiDate}
-                  onChange={(e) => setFormData({ ...formData, emiDate: e.target.value })}
+                  value={formData.emi_date}
+                  onChange={(e) => setFormData({ ...formData, emi_date: e.target.value })}
                   placeholder="e.g., 15 for 15th of every month"
                 />
               </div>
@@ -133,22 +134,22 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="nationalPermitExpiry">National Permit Expiry</Label>
+                <Label htmlFor="national_permit_expiry">National Permit Expiry</Label>
                 <Input
-                  id="nationalPermitExpiry"
+                  id="national_permit_expiry"
                   type="date"
-                  value={formData.nationalPermitExpiry}
-                  onChange={(e) => setFormData({ ...formData, nationalPermitExpiry: e.target.value })}
+                  value={formData.national_permit_expiry}
+                  onChange={(e) => setFormData({ ...formData, national_permit_expiry: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="puccExpiry">PUCC Expiry</Label>
+                <Label htmlFor="pucc_expiry">PUCC Expiry</Label>
                 <Input
-                  id="puccExpiry"
+                  id="pucc_expiry"
                   type="date"
-                  value={formData.puccExpiry}
-                  onChange={(e) => setFormData({ ...formData, puccExpiry: e.target.value })}
+                  value={formData.pucc_expiry}
+                  onChange={(e) => setFormData({ ...formData, pucc_expiry: e.target.value })}
                   required
                 />
               </div>
@@ -156,22 +157,22 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="permitExpiry">Permit Expiry</Label>
+                <Label htmlFor="permit_expiry">Permit Expiry</Label>
                 <Input
-                  id="permitExpiry"
+                  id="permit_expiry"
                   type="date"
-                  value={formData.permitExpiry}
-                  onChange={(e) => setFormData({ ...formData, permitExpiry: e.target.value })}
+                  value={formData.permit_expiry}
+                  onChange={(e) => setFormData({ ...formData, permit_expiry: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="insuranceExpiry">Insurance Expiry</Label>
+                <Label htmlFor="insurance_expiry">Insurance Expiry</Label>
                 <Input
-                  id="insuranceExpiry"
+                  id="insurance_expiry"
                   type="date"
-                  value={formData.insuranceExpiry}
-                  onChange={(e) => setFormData({ ...formData, insuranceExpiry: e.target.value })}
+                  value={formData.insurance_expiry}
+                  onChange={(e) => setFormData({ ...formData, insurance_expiry: e.target.value })}
                   required
                 />
               </div>
@@ -182,7 +183,7 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value: "active" | "maintenance" | "inactive") => 
+                  onValueChange={(value: string) => 
                     setFormData({ ...formData, status: value })
                   }
                 >
@@ -210,12 +211,12 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lastService">Last Service</Label>
+              <Label htmlFor="last_service">Last Service</Label>
               <Input
-                id="lastService"
+                id="last_service"
                 type="date"
-                value={formData.lastService}
-                onChange={(e) => setFormData({ ...formData, lastService: e.target.value })}
+                value={formData.last_service}
+                onChange={(e) => setFormData({ ...formData, last_service: e.target.value })}
                 required
               />
             </div>
