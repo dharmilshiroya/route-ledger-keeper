@@ -17,6 +17,7 @@ interface VehicleFormData {
   permit_expiry: string;
   insurance_expiry: string;
   emi_date?: string;
+  emi_amount?: number;
   status: string;
   mileage: number;
   last_service: string;
@@ -39,6 +40,7 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
     permit_expiry: vehicle?.permit_expiry || "",
     insurance_expiry: vehicle?.insurance_expiry || "",
     emi_date: vehicle?.emi_date || "",
+    emi_amount: vehicle?.emi_amount || 0,
     status: vehicle?.status || "active",
     mileage: vehicle?.mileage || 0,
     last_service: vehicle?.last_service || ""
@@ -118,17 +120,31 @@ export function VehicleForm({ vehicle, onSubmit, onCancel }: VehicleFormProps) {
             </div>
 
             {formData.financed && (
-              <div className="space-y-2">
-                <Label htmlFor="emi_date">EMI Date (Day of Month)</Label>
-                <Input
-                  id="emi_date"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={formData.emi_date}
-                  onChange={(e) => setFormData({ ...formData, emi_date: e.target.value })}
-                  placeholder="e.g., 15 for 15th of every month"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emi_date">EMI Date (Day of Month)</Label>
+                  <Input
+                    id="emi_date"
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={formData.emi_date}
+                    onChange={(e) => setFormData({ ...formData, emi_date: e.target.value })}
+                    placeholder="e.g., 15 for 15th of every month"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emi_amount">EMI Amount</Label>
+                  <Input
+                    id="emi_amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.emi_amount || ""}
+                    onChange={(e) => setFormData({ ...formData, emi_amount: parseFloat(e.target.value) || 0 })}
+                    placeholder="Monthly EMI amount"
+                  />
+                </div>
               </div>
             )}
 

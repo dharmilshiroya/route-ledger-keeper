@@ -11,40 +11,64 @@ export type Database = {
     Tables: {
       drivers: {
         Row: {
+          address: string | null
+          age: number | null
+          city: string | null
           created_at: string
           email: string
           experience: number | null
+          first_name: string | null
           hire_date: string | null
           id: string
+          joining_date: string | null
+          last_name: string | null
           license_number: string
-          name: string
+          name: string | null
           phone: string
+          salary: number | null
+          state: string | null
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
+          age?: number | null
+          city?: string | null
           created_at?: string
           email: string
           experience?: number | null
+          first_name?: string | null
           hire_date?: string | null
           id?: string
+          joining_date?: string | null
+          last_name?: string | null
           license_number: string
-          name: string
+          name?: string | null
           phone: string
+          salary?: number | null
+          state?: string | null
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
+          age?: number | null
+          city?: string | null
           created_at?: string
           email?: string
           experience?: number | null
+          first_name?: string | null
           hire_date?: string | null
           id?: string
+          joining_date?: string | null
+          last_name?: string | null
           license_number?: string
-          name?: string
+          name?: string | null
           phone?: string
+          salary?: number | null
+          state?: string | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -164,6 +188,7 @@ export type Database = {
       vehicles: {
         Row: {
           created_at: string
+          emi_amount: number | null
           emi_date: string | null
           financed: boolean
           fuel_type: string
@@ -182,6 +207,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          emi_amount?: number | null
           emi_date?: string | null
           financed?: boolean
           fuel_type: string
@@ -200,6 +226,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          emi_amount?: number | null
           emi_date?: string | null
           financed?: boolean
           fuel_type?: string
