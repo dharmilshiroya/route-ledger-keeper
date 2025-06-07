@@ -60,13 +60,13 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       
       const { data, error } = await supabase
         .from(tableName)
-        .select('id, date, source, destination, total_weight, total_fare')
+        .select('*')
         .eq('trip_id', tripId)
         .order('date', { ascending: false });
 
       if (error) throw error;
       
-      const mappedData: SubTrip[] = (data || []).map(item => ({
+      const mappedData: SubTrip[] = (data || []).map((item: any) => ({
         id: item.id,
         date: item.date,
         source: item.source,
@@ -94,27 +94,27 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       const tableName = type === "inbound" ? "inbound_trip_items" : "outbound_trip_items";
       const foreignKey = type === "inbound" ? "inbound_trip_id" : "outbound_trip_id";
       
-      // First get the items
+      // First get the items with explicit any typing to avoid complex inference
       const { data: itemsData, error: itemsError } = await supabase
         .from(tableName)
-        .select('id, sr_no, customer_name, receiver_name, total_weight, total_quantity, fare_per_piece, total_price, goods_type_id')
+        .select('*')
         .eq(foreignKey, selectedSubTrip)
         .order('sr_no', { ascending: true });
 
       if (itemsError) throw itemsError;
 
-      // Then get goods types separately to avoid complex type inference
-      const goodsTypeIds = itemsData?.map(item => item.goods_type_id).filter(Boolean) || [];
+      // Then get goods types separately
+      const goodsTypeIds = itemsData?.map((item: any) => item.goods_type_id).filter(Boolean) || [];
       let goodsTypesMap: Record<string, string> = {};
       
       if (goodsTypeIds.length > 0) {
         const { data: goodsData, error: goodsError } = await supabase
           .from('goods_types')
-          .select('id, name')
+          .select('*')
           .in('id', goodsTypeIds);
           
         if (!goodsError && goodsData) {
-          goodsTypesMap = goodsData.reduce((acc, goods) => {
+          goodsTypesMap = goodsData.reduce((acc: any, goods: any) => {
             acc[goods.id] = goods.name;
             return acc;
           }, {} as Record<string, string>);
@@ -122,7 +122,7 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       }
 
       // Map the data with explicit typing
-      const mappedItems: TripItem[] = (itemsData || []).map(item => ({
+      const mappedItems: TripItem[] = (itemsData || []).map((item: any) => ({
         id: item.id,
         sr_no: item.sr_no,
         customer_name: item.customer_name,
