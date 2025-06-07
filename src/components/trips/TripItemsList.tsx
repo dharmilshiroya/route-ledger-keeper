@@ -17,7 +17,7 @@ interface TripItem {
   total_quantity: number;
   fare_per_piece: number;
   total_price: number;
-  goods_types?: { name: string };
+  goods_types?: { name: string } | null;
 }
 
 interface SubTrip {
@@ -25,8 +25,8 @@ interface SubTrip {
   date: string;
   source: string;
   destination: string;
-  total_weight: number;
-  total_fare: number;
+  total_weight: number | null;
+  total_fare: number | null;
 }
 
 interface TripItemsListProps {
@@ -149,8 +149,8 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
                 <h4 className="font-semibold">{currentSubTrip.source} → {currentSubTrip.destination}</h4>
                 <p className="text-sm text-gray-600">
                   Date: {new Date(currentSubTrip.date).toLocaleDateString()} | 
-                  Weight: {currentSubTrip.total_weight} kg | 
-                  Fare: ₹{currentSubTrip.total_fare}
+                  Weight: {currentSubTrip.total_weight || 0} kg | 
+                  Fare: ₹{currentSubTrip.total_fare || 0}
                 </p>
               </div>
               <Button onClick={() => setShowItemForm(true)} size="sm">

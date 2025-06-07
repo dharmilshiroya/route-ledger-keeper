@@ -62,40 +62,79 @@ export function TripItemForm({ subTripId, type, nextSrNo, onSubmit, onCancel }: 
     setLoading(true);
 
     try {
-      const tableName = type === "inbound" ? "inbound_trip_items" : "outbound_trip_items";
-      const foreignKey = type === "inbound" ? "inbound_trip_id" : "outbound_trip_id";
+      const totalPrice = calculateTotalPrice();
       
-      const itemData = {
-        [foreignKey]: subTripId,
-        ...formData,
-        total_price: calculateTotalPrice(),
-      };
+      if (type === "inbound") {
+        const { error: itemError } = await supabase
+          .from("inbound_trip_items")
+          .insert({
+            inbound_trip_id: subTripId,
+            sr_no: formData.sr_no,
+            customer_name: formData.customer_name,
+            receiver_name: formData.receiver_name,
+            total_weight: formData.total_weight,
+            total_quantity: formData.total_quantity,
+            goods_type_id: formData.goods_type_id || null,
+            fare_per_piece: formData.fare_per_piece,
+            total_price: totalPrice,
+          });
 
-      const { error: itemError } = await supabase
-        .from(tableName)
-        .insert(itemData);
+        if (itemError) throw itemError;
 
-      if (itemError) throw itemError;
+        // Update the parent trip totals
+        const { data: currentTrip, error: fetchError } = await supabase
+          .from("inbound_trips")
+          .select('total_weight, total_fare')
+          .eq('id', subTripId)
+          .single();
 
-      // Update the parent trip totals
-      const parentTableName = type === "inbound" ? "inbound_trips" : "outbound_trips";
-      const { data: currentTrip, error: fetchError } = await supabase
-        .from(parentTableName)
-        .select('total_weight, total_fare')
-        .eq('id', subTripId)
-        .single();
+        if (fetchError) throw fetchError;
 
-      if (fetchError) throw fetchError;
+        const { error: updateError } = await supabase
+          .from("inbound_trips")
+          .update({
+            total_weight: (currentTrip.total_weight || 0) + formData.total_weight,
+            total_fare: (currentTrip.total_fare || 0) + totalPrice,
+          })
+          .eq('id', subTripId);
 
-      const { error: updateError } = await supabase
-        .from(parentTableName)
-        .update({
-          total_weight: (currentTrip.total_weight || 0) + formData.total_weight,
-          total_fare: (currentTrip.total_fare || 0) + calculateTotalPrice(),
-        })
-        .eq('id', subTripId);
+        if (updateError) throw updateError;
+      } else {
+        const { error: itemError } = await supabase
+          .from("outbound_trip_items")
+          .insert({
+            outbound_trip_id: subTripId,
+            sr_no: formData.sr_no,
+            customer_name: formData.customer_name,
+            receiver_name: formData.receiver_name,
+            total_weight: formData.total_weight,
+            total_quantity: formData.total_quantity,
+            goods_type_id: formData.goods_type_id || null,
+            fare_per_piece: formData.fare_per_piece,
+            total_price: totalPrice,
+          });
 
-      if (updateError) throw updateError;
+        if (itemError) throw itemError;
+
+        // Update the parent trip totals
+        const { data: currentTrip, error: fetchError } = await supabase
+          .from("outbound_trips")
+          .select('total_weight, total_fare')
+          .eq('id', subTripId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const { error: updateError } = await supabase
+          .from("outbound_trips")
+          .update({
+            total_weight: (currentTrip.total_weight || 0) + formData.total_weight,
+            total_fare: (currentTrip.total_fare || 0) + totalPrice,
+          })
+          .eq('id', subTripId);
+
+        if (updateError) throw updateError;
+      }
 
       toast.success('Trip item added successfully');
       onSubmit();

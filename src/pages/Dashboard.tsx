@@ -48,20 +48,28 @@ const Dashboard = () => {
       const { count: tripsCount } = await supabase
         .from('trips')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'in-progress');
+        .eq('status', 'active');
 
-      // Fetch this month's revenue
+      // Calculate monthly revenue from inbound and outbound trips
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      const { data: tripsData } = await supabase
-        .from('trips')
-        .select('revenue')
-        .eq('status', 'completed')
+      // Fetch inbound trips revenue
+      const { data: inboundTrips } = await supabase
+        .from('inbound_trips')
+        .select('total_fare')
         .gte('created_at', startOfMonth.toISOString());
 
-      const monthlyRevenue = tripsData?.reduce((sum, trip) => sum + (trip.revenue || 0), 0) || 0;
+      // Fetch outbound trips revenue
+      const { data: outboundTrips } = await supabase
+        .from('outbound_trips')
+        .select('total_fare')
+        .gte('created_at', startOfMonth.toISOString());
+
+      const inboundRevenue = inboundTrips?.reduce((sum, trip) => sum + (trip.total_fare || 0), 0) || 0;
+      const outboundRevenue = outboundTrips?.reduce((sum, trip) => sum + (trip.total_fare || 0), 0) || 0;
+      const monthlyRevenue = inboundRevenue + outboundRevenue;
 
       setStats({
         totalVehicles: vehiclesCount || 0,
@@ -148,7 +156,7 @@ const Dashboard = () => {
             <DollarSign className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.monthlyRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₹{stats.monthlyRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
         </Card>
