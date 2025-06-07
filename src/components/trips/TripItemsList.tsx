@@ -58,15 +58,18 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       setLoading(true);
       const tableName = type === "inbound" ? "inbound_trips" : "outbound_trips";
       
-      const { data, error } = await supabase
+      // Use rpc or simple query to avoid type inference issues
+      const response = await supabase
         .from(tableName)
         .select('*')
         .eq('trip_id', tripId)
         .order('date', { ascending: false });
 
-      if (error) throw error;
+      if (response.error) throw response.error;
       
-      const mappedData: SubTrip[] = (data || []).map((item: any) => ({
+      // Direct mapping without complex inference
+      const rawData = response.data as any[];
+      const mappedData: SubTrip[] = rawData.map(item => ({
         id: item.id,
         date: item.date,
         source: item.source,
@@ -94,35 +97,38 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       const tableName = type === "inbound" ? "inbound_trip_items" : "outbound_trip_items";
       const foreignKey = type === "inbound" ? "inbound_trip_id" : "outbound_trip_id";
       
-      // First get the items with explicit any typing to avoid complex inference
-      const { data: itemsData, error: itemsError } = await supabase
+      // Get items with explicit any casting to avoid inference
+      const itemsResponse = await supabase
         .from(tableName)
         .select('*')
         .eq(foreignKey, selectedSubTrip)
         .order('sr_no', { ascending: true });
 
-      if (itemsError) throw itemsError;
+      if (itemsResponse.error) throw itemsResponse.error;
 
-      // Then get goods types separately
-      const goodsTypeIds = itemsData?.map((item: any) => item.goods_type_id).filter(Boolean) || [];
+      const rawItemsData = itemsResponse.data as any[];
+      
+      // Get goods types separately
+      const goodsTypeIds = rawItemsData.map(item => item.goods_type_id).filter(Boolean);
       let goodsTypesMap: Record<string, string> = {};
       
       if (goodsTypeIds.length > 0) {
-        const { data: goodsData, error: goodsError } = await supabase
+        const goodsResponse = await supabase
           .from('goods_types')
           .select('*')
           .in('id', goodsTypeIds);
           
-        if (!goodsError && goodsData) {
-          goodsTypesMap = goodsData.reduce((acc: any, goods: any) => {
+        if (!goodsResponse.error && goodsResponse.data) {
+          const rawGoodsData = goodsResponse.data as any[];
+          goodsTypesMap = rawGoodsData.reduce((acc, goods) => {
             acc[goods.id] = goods.name;
             return acc;
           }, {} as Record<string, string>);
         }
       }
 
-      // Map the data with explicit typing
-      const mappedItems: TripItem[] = (itemsData || []).map((item: any) => ({
+      // Direct mapping without type inference
+      const mappedItems: TripItem[] = rawItemsData.map(item => ({
         id: item.id,
         sr_no: item.sr_no,
         customer_name: item.customer_name,
