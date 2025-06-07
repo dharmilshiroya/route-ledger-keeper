@@ -57,16 +57,27 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
     try {
       setLoading(true);
       const tableName = type === "inbound" ? "inbound_trips" : "outbound_trips";
+      
       const { data, error } = await supabase
         .from(tableName)
-        .select('*')
+        .select('id, date, source, destination, total_weight, total_fare')
         .eq('trip_id', tripId)
         .order('date', { ascending: false });
 
       if (error) throw error;
-      setSubTrips(data || []);
-      if (data && data.length > 0) {
-        setSelectedSubTrip(data[0].id);
+      
+      const mappedData: SubTrip[] = (data || []).map(item => ({
+        id: item.id,
+        date: item.date,
+        source: item.source,
+        destination: item.destination,
+        total_weight: item.total_weight,
+        total_fare: item.total_fare
+      }));
+      
+      setSubTrips(mappedData);
+      if (mappedData.length > 0) {
+        setSelectedSubTrip(mappedData[0].id);
       }
     } catch (error) {
       console.error(`Error fetching ${type} trips:`, error);
@@ -83,17 +94,47 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       const tableName = type === "inbound" ? "inbound_trip_items" : "outbound_trip_items";
       const foreignKey = type === "inbound" ? "inbound_trip_id" : "outbound_trip_id";
       
-      const { data, error } = await supabase
+      // First get the items
+      const { data: itemsData, error: itemsError } = await supabase
         .from(tableName)
-        .select(`
-          *,
-          goods_types(name)
-        `)
+        .select('id, sr_no, customer_name, receiver_name, total_weight, total_quantity, fare_per_piece, total_price, goods_type_id')
         .eq(foreignKey, selectedSubTrip)
         .order('sr_no', { ascending: true });
 
-      if (error) throw error;
-      setTripItems(data || []);
+      if (itemsError) throw itemsError;
+
+      // Then get goods types separately to avoid complex type inference
+      const goodsTypeIds = itemsData?.map(item => item.goods_type_id).filter(Boolean) || [];
+      let goodsTypesMap: Record<string, string> = {};
+      
+      if (goodsTypeIds.length > 0) {
+        const { data: goodsData, error: goodsError } = await supabase
+          .from('goods_types')
+          .select('id, name')
+          .in('id', goodsTypeIds);
+          
+        if (!goodsError && goodsData) {
+          goodsTypesMap = goodsData.reduce((acc, goods) => {
+            acc[goods.id] = goods.name;
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
+
+      // Map the data with explicit typing
+      const mappedItems: TripItem[] = (itemsData || []).map(item => ({
+        id: item.id,
+        sr_no: item.sr_no,
+        customer_name: item.customer_name,
+        receiver_name: item.receiver_name,
+        total_weight: item.total_weight,
+        total_quantity: item.total_quantity,
+        fare_per_piece: item.fare_per_piece,
+        total_price: item.total_price,
+        goods_types: item.goods_type_id ? { name: goodsTypesMap[item.goods_type_id] || "Unknown" } : null
+      }));
+
+      setTripItems(mappedItems);
     } catch (error) {
       console.error(`Error fetching ${type} trip items:`, error);
       toast.error(`Failed to load ${type} trip items`);
