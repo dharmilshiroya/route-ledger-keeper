@@ -122,56 +122,280 @@ export type Database = {
           },
         ]
       }
+      goods_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      inbound_trip_items: {
+        Row: {
+          created_at: string
+          customer_name: string
+          fare_per_piece: number
+          goods_type_id: string | null
+          id: string
+          inbound_trip_id: string
+          receiver_name: string
+          sr_no: number
+          total_price: number
+          total_quantity: number
+          total_weight: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          fare_per_piece?: number
+          goods_type_id?: string | null
+          id?: string
+          inbound_trip_id: string
+          receiver_name: string
+          sr_no: number
+          total_price?: number
+          total_quantity?: number
+          total_weight?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          fare_per_piece?: number
+          goods_type_id?: string | null
+          id?: string
+          inbound_trip_id?: string
+          receiver_name?: string
+          sr_no?: number
+          total_price?: number
+          total_quantity?: number
+          total_weight?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_trip_items_goods_type_id_fkey"
+            columns: ["goods_type_id"]
+            isOneToOne: false
+            referencedRelation: "goods_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_trip_items_inbound_trip_id_fkey"
+            columns: ["inbound_trip_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbound_trips: {
+        Row: {
+          created_at: string
+          date: string
+          destination: string
+          id: string
+          source: string
+          total_fare: number | null
+          total_weight: number | null
+          trip_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          destination: string
+          id?: string
+          source: string
+          total_fare?: number | null
+          total_weight?: number | null
+          trip_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          destination?: string
+          id?: string
+          source?: string
+          total_fare?: number | null
+          total_weight?: number | null
+          trip_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_trips_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outbound_trip_items: {
+        Row: {
+          created_at: string
+          customer_name: string
+          fare_per_piece: number
+          goods_type_id: string | null
+          id: string
+          outbound_trip_id: string
+          receiver_name: string
+          sr_no: number
+          total_price: number
+          total_quantity: number
+          total_weight: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          fare_per_piece?: number
+          goods_type_id?: string | null
+          id?: string
+          outbound_trip_id: string
+          receiver_name: string
+          sr_no: number
+          total_price?: number
+          total_quantity?: number
+          total_weight?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          fare_per_piece?: number
+          goods_type_id?: string | null
+          id?: string
+          outbound_trip_id?: string
+          receiver_name?: string
+          sr_no?: number
+          total_price?: number
+          total_quantity?: number
+          total_weight?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_trip_items_goods_type_id_fkey"
+            columns: ["goods_type_id"]
+            isOneToOne: false
+            referencedRelation: "goods_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outbound_trip_items_outbound_trip_id_fkey"
+            columns: ["outbound_trip_id"]
+            isOneToOne: false
+            referencedRelation: "outbound_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outbound_trips: {
+        Row: {
+          created_at: string
+          date: string
+          destination: string
+          id: string
+          source: string
+          total_fare: number | null
+          total_weight: number | null
+          trip_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          destination: string
+          id?: string
+          source: string
+          total_fare?: number | null
+          total_weight?: number | null
+          trip_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          destination?: string
+          id?: string
+          source?: string
+          total_fare?: number | null
+          total_weight?: number | null
+          trip_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_trips_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips: {
         Row: {
           created_at: string
-          destination: string
-          distance: number | null
-          driver_id: string | null
-          end_time: string | null
           id: string
-          origin: string
-          revenue: number | null
-          start_time: string | null
+          local_driver_id: string | null
+          route_driver_id: string | null
           status: string
+          trip_number: string
           updated_at: string
           user_id: string
           vehicle_id: string | null
         }
         Insert: {
           created_at?: string
-          destination: string
-          distance?: number | null
-          driver_id?: string | null
-          end_time?: string | null
           id?: string
-          origin: string
-          revenue?: number | null
-          start_time?: string | null
+          local_driver_id?: string | null
+          route_driver_id?: string | null
           status?: string
+          trip_number: string
           updated_at?: string
           user_id: string
           vehicle_id?: string | null
         }
         Update: {
           created_at?: string
-          destination?: string
-          distance?: number | null
-          driver_id?: string | null
-          end_time?: string | null
           id?: string
-          origin?: string
-          revenue?: number | null
-          start_time?: string | null
+          local_driver_id?: string | null
+          route_driver_id?: string | null
           status?: string
+          trip_number?: string
           updated_at?: string
           user_id?: string
           vehicle_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "trips_driver_id_fkey"
-            columns: ["driver_id"]
+            foreignKeyName: "trips_local_driver_id_fkey"
+            columns: ["local_driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_route_driver_id_fkey"
+            columns: ["route_driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
             referencedColumns: ["id"]

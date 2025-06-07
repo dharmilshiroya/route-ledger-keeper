@@ -4,30 +4,50 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, MapPin, Clock, DollarSign } from "lucide-react";
+import { Plus, Search, Truck, FileText, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { TripForm } from "@/components/trips/TripForm";
+import { TripDetails } from "@/components/trips/TripDetails";
 
 interface Trip {
   id: string;
-  driver_id: string;
-  vehicle_id: string;
-  origin: string;
-  destination: string;
-  distance: number;
+  trip_number: string;
+  user_id: string;
+  vehicle_id?: string;
+  local_driver_id?: string;
+  route_driver_id?: string;
   status: string;
-  start_time: string;
-  end_time?: string;
-  revenue: number;
-  drivers?: { name: string };
+  created_at: string;
   vehicles?: { license_plate: string };
+  local_driver?: { first_name: string; last_name: string };
+  route_driver?: { first_name: string; last_name: string };
+  inbound_trips?: Array<{
+    id: string;
+    date: string;
+    source: string;
+    destination: string;
+    total_weight: number;
+    total_fare: number;
+  }>;
+  outbound_trips?: Array<{
+    id: string;
+    date: string;
+    source: string;
+    destination: string;
+    total_weight: number;
+    total_fare: number;
+  }>;
 }
 
 const Trips = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showTripForm, setShowTripForm] = useState(false);
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [showTripDetails, setShowTripDetails] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -43,8 +63,11 @@ const Trips = () => {
         .from('trips')
         .select(`
           *,
-          drivers(name),
-          vehicles(license_plate)
+          vehicles(license_plate),
+          local_driver:drivers!trips_local_driver_id_fkey(first_name, last_name),
+          route_driver:drivers!trips_route_driver_id_fkey(first_name, last_name),
+          inbound_trips(id, date, source, destination, total_weight, total_fare),
+          outbound_trips(id, date, source, destination, total_weight, total_fare)
         `)
         .order('created_at', { ascending: false });
 
@@ -59,20 +82,20 @@ const Trips = () => {
   };
 
   const filteredTrips = trips.filter(trip =>
-    trip.drivers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.vehicles?.license_plate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trip.destination.toLowerCase().includes(searchTerm.toLowerCase())
+    trip.trip_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.local_driver?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.local_driver?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.route_driver?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.route_driver?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.vehicles?.license_plate?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "scheduled":
-        return "bg-blue-100 text-blue-800";
-      case "in-progress":
-        return "bg-yellow-100 text-yellow-800";
-      case "completed":
+      case "active":
         return "bg-green-100 text-green-800";
+      case "completed":
+        return "bg-blue-100 text-blue-800";
       case "cancelled":
         return "bg-red-100 text-red-800";
       default:
@@ -80,17 +103,21 @@ const Trips = () => {
     }
   };
 
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return "Not set";
-    return new Date(dateString).toLocaleString();
+  const handleTripCreated = () => {
+    setShowTripForm(false);
+    fetchTrips();
+    toast.success('Trip created successfully');
   };
 
-  const calculateDuration = (startTime: string, endTime?: string) => {
-    if (!endTime) return "In progress";
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    const diffHours = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60) * 10) / 10;
-    return `${diffHours} hours`;
+  const handleViewDetails = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setShowTripDetails(true);
+  };
+
+  const calculateTripTotals = (trip: Trip) => {
+    const inboundTotal = trip.inbound_trips?.reduce((sum, ib) => sum + (ib.total_fare || 0), 0) || 0;
+    const outboundTotal = trip.outbound_trips?.reduce((sum, ob) => sum + (ob.total_fare || 0), 0) || 0;
+    return inboundTotal + outboundTotal;
   };
 
   if (loading) {
@@ -105,12 +132,12 @@ const Trips = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Trips</h1>
-          <p className="text-gray-600">Track and manage your transportation routes</p>
+          <h1 className="text-3xl font-bold text-gray-900">Trip Management</h1>
+          <p className="text-gray-600">Manage inbound and outbound trips with detailed bill book entries</p>
         </div>
-        <Button className="flex items-center space-x-2">
+        <Button onClick={() => setShowTripForm(true)} className="flex items-center space-x-2">
           <Plus className="h-4 w-4" />
-          <span>Schedule Trip</span>
+          <span>New Trip</span>
         </Button>
       </div>
 
@@ -119,7 +146,7 @@ const Trips = () => {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search trips..."
+              placeholder="Search trips by number, driver, or vehicle..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -135,69 +162,66 @@ const Trips = () => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-semibold">Trip #{trip.id.slice(0, 8)}</h3>
+                    <Truck className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold">Trip #{trip.trip_number}</h3>
                     <Badge className={getStatusColor(trip.status)}>
-                      {trip.status.replace("-", " ")}
+                      {trip.status}
                     </Badge>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Driver: <span className="font-medium">{trip.drivers?.name || "Not assigned"}</span> • 
-                    Vehicle: <span className="font-medium">{trip.vehicles?.license_plate || "Not assigned"}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                    <div>
+                      <span className="font-medium">Vehicle:</span> {trip.vehicles?.license_plate || "Not assigned"}
+                    </div>
+                    <div>
+                      <span className="font-medium">Local Driver:</span> {
+                        trip.local_driver ? 
+                        `${trip.local_driver.first_name} ${trip.local_driver.last_name}` : 
+                        "Not assigned"
+                      }
+                    </div>
+                    <div>
+                      <span className="font-medium">Route Driver:</span> {
+                        trip.route_driver ? 
+                        `${trip.route_driver.first_name} ${trip.route_driver.last_name}` : 
+                        "Not assigned"
+                      }
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="flex items-center space-x-1 text-green-600 font-semibold">
-                    <DollarSign className="h-4 w-4" />
-                    <span>${trip.revenue || 0}</span>
+                  <div className="text-2xl font-bold text-green-600">
+                    ₹{calculateTripTotals(trip).toLocaleString()}
                   </div>
+                  <div className="text-sm text-gray-500">Total Revenue</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-start space-x-3">
-                  <MapPin className="h-5 w-5 text-blue-500 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Route</div>
-                    <div className="text-sm text-gray-600">
-                      {trip.origin} → {trip.destination}
-                    </div>
-                    <div className="text-xs text-gray-500">{trip.distance || 0} miles</div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="flex items-center space-x-2 text-sm">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                  <span>Inbound Trips: {trip.inbound_trips?.length || 0}</span>
                 </div>
+                <div className="flex items-center space-x-2 text-sm">
+                  <FileText className="h-4 w-4 text-orange-500" />
+                  <span>Outbound Trips: {trip.outbound_trips?.length || 0}</span>
+                </div>
+                <div className="flex items-center space-x-2 text-sm">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span>Created: {new Date(trip.created_at).toLocaleDateString()}</span>
+                </div>
+              </div>
 
-                <div className="flex items-start space-x-3">
-                  <Clock className="h-5 w-5 text-orange-500 mt-0.5" />
-                  <div>
-                    <div className="font-medium text-sm">Schedule</div>
-                    <div className="text-sm text-gray-600">
-                      Started: {formatDateTime(trip.start_time)}
-                    </div>
-                    {trip.end_time && (
-                      <div className="text-sm text-gray-600">
-                        Ended: {formatDateTime(trip.end_time)}
-                      </div>
-                    )}
-                    <div className="text-xs text-gray-500">
-                      Duration: {calculateDuration(trip.start_time, trip.end_time)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" size="sm">
-                    View Details
-                  </Button>
-                  {trip.status === "scheduled" && (
-                    <Button size="sm">
-                      Start Trip
-                    </Button>
-                  )}
-                  {trip.status === "in-progress" && (
-                    <Button size="sm" variant="destructive">
-                      Complete Trip
-                    </Button>
-                  )}
-                </div>
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleViewDetails(trip)}
+                >
+                  View Details
+                </Button>
+                <Button size="sm">
+                  Manage Trip
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -207,9 +231,28 @@ const Trips = () => {
       {filteredTrips.length === 0 && !loading && (
         <Card>
           <CardContent className="text-center py-8">
-            <p className="text-gray-500">No trips found. Schedule your first trip to get started.</p>
+            <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">No trips found. Create your first trip to get started.</p>
           </CardContent>
         </Card>
+      )}
+
+      {showTripForm && (
+        <TripForm
+          onSubmit={handleTripCreated}
+          onCancel={() => setShowTripForm(false)}
+        />
+      )}
+
+      {showTripDetails && selectedTrip && (
+        <TripDetails
+          trip={selectedTrip}
+          onClose={() => {
+            setShowTripDetails(false);
+            setSelectedTrip(null);
+          }}
+          onTripUpdated={fetchTrips}
+        />
       )}
     </div>
   );
