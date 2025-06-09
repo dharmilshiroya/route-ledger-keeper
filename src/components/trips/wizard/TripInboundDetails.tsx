@@ -25,9 +25,9 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
     inboundDate: data.inboundDate || new Date().toISOString().split('T')[0],
     inboundSource: data.inboundSource || "",
     inboundDestination: data.inboundDestination || "",
-    inboundItems: data.inboundItems || Array.from({ length: 15 }, (_, i) => ({
-      id: `temp-${i + 1}`,
-      srNo: i + 1,
+    inboundItems: data.inboundItems || [{
+      id: `temp-1`,
+      srNo: 1,
       customerName: "",
       receiverName: "",
       goodsTypeId: "",
@@ -35,7 +35,7 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
       totalQuantity: 0,
       farePerPiece: 0,
       totalPrice: 0
-    }))
+    }]
   });
   
   const [goodsTypes, setGoodsTypes] = useState<GoodsType[]>([]);
@@ -63,7 +63,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
     const newItems = [...formData.inboundItems];
     const item = { ...newItems[index], [field]: value };
     
-    // Auto-calculate total price
     if (field === 'totalQuantity' || field === 'farePerPiece') {
       item.totalPrice = item.totalQuantity * item.farePerPiece;
     }
@@ -96,21 +95,26 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
     setLoading(true);
     
     try {
-      // Create inbound trip
+      if (!data.tripId) {
+        console.error('Trip ID not found');
+        return;
+      }
+
       const { data: inboundTrip, error: tripError } = await supabase
         .from('inbound_trips')
         .insert({
-          trip_id: data.tripNumber, // This will be the actual trip ID from step 1
+          trip_id: data.tripId,
           date: formData.inboundDate,
           source: formData.inboundSource,
-          destination: formData.inboundDestination
+          destination: formData.inboundDestination,
+          total_weight: formData.inboundItems.reduce((sum, item) => sum + item.totalWeight, 0),
+          total_fare: formData.inboundItems.reduce((sum, item) => sum + item.totalPrice, 0)
         })
         .select()
         .single();
 
       if (tripError) throw tripError;
 
-      // Save valid items
       const validItems = formData.inboundItems.filter(item => 
         item.customerName.trim() !== "" || item.receiverName.trim() !== ""
       );
@@ -147,7 +151,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Route Information */}
       <Card className="border-l-4 border-l-blue-500">
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -194,7 +197,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
         </CardContent>
       </Card>
 
-      {/* Customer Details */}
       <Card className="border-l-4 border-l-green-500">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -224,15 +226,13 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
               </thead>
               <tbody>
                 {formData.inboundItems.map((item, index) => (
-                  <tr key={item.id} className={`border-b hover:bg-gray-50 ${index < 15 ? 'bg-yellow-50' : ''}`}>
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
                     <td className="p-2 font-medium">{item.srNo}</td>
                     <td className="p-2">
                       <Input
                         value={item.customerName}
                         onChange={(e) => handleItemChange(index, 'customerName', e.target.value)}
                         placeholder="Customer name"
-                        className={`${index < 15 ? 'border-yellow-300' : ''}`}
-                        required={index < 15}
                       />
                     </td>
                     <td className="p-2">
@@ -240,8 +240,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
                         value={item.receiverName}
                         onChange={(e) => handleItemChange(index, 'receiverName', e.target.value)}
                         placeholder="Receiver name"
-                        className={`${index < 15 ? 'border-yellow-300' : ''}`}
-                        required={index < 15}
                       />
                     </td>
                     <td className="p-2">
@@ -249,7 +247,7 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
                         value={item.goodsTypeId} 
                         onValueChange={(value) => handleItemChange(index, 'goodsTypeId', value)}
                       >
-                        <SelectTrigger className={`${index < 15 ? 'border-yellow-300' : ''}`}>
+                        <SelectTrigger>
                           <SelectValue placeholder="Select goods" />
                         </SelectTrigger>
                         <SelectContent>
@@ -266,7 +264,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
                         type="number"
                         value={item.totalWeight}
                         onChange={(e) => handleItemChange(index, 'totalWeight', parseFloat(e.target.value) || 0)}
-                        className={`${index < 15 ? 'border-yellow-300' : ''}`}
                       />
                     </td>
                     <td className="p-2">
@@ -274,7 +271,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
                         type="number"
                         value={item.totalQuantity}
                         onChange={(e) => handleItemChange(index, 'totalQuantity', parseInt(e.target.value) || 0)}
-                        className={`${index < 15 ? 'border-yellow-300' : ''}`}
                       />
                     </td>
                     <td className="p-2">
@@ -282,7 +278,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
                         type="number"
                         value={item.farePerPiece}
                         onChange={(e) => handleItemChange(index, 'farePerPiece', parseFloat(e.target.value) || 0)}
-                        className={`${index < 15 ? 'border-yellow-300' : ''}`}
                       />
                     </td>
                     <td className="p-2 font-semibold">₹{item.totalPrice.toLocaleString()}</td>
@@ -298,12 +293,6 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
               Add Row
             </Button>
           </div>
-          
-          <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              <strong>Note:</strong> First 15 rows are compulsory. Please fill customer and receiver details for mandatory entries.
-            </p>
-          </div>
         </CardContent>
       </Card>
 
@@ -313,7 +302,7 @@ export function TripInboundDetails({ data, onNext, onPrevious }: TripInboundDeta
           Previous
         </Button>
         <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-          {loading ? "Saving..." : "Next: Outbound Details"}
+          {loading ? "Saving..." : "Save Inbound Details"}
         </Button>
       </div>
     </form>

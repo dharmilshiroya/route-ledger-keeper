@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, MapPin, Package, Plus, CheckCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Package, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TripData } from "../CreateTripWizard";
@@ -26,7 +26,17 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
     outboundDate: data.outboundDate || new Date().toISOString().split('T')[0],
     outboundSource: data.outboundSource || data.inboundDestination || "",
     outboundDestination: data.outboundDestination || data.inboundSource || "",
-    outboundItems: data.outboundItems || []
+    outboundItems: data.outboundItems || [{
+      id: `temp-1`,
+      srNo: 1,
+      customerName: "",
+      receiverName: "",
+      goodsTypeId: "",
+      totalWeight: 0,
+      totalQuantity: 0,
+      farePerPiece: 0,
+      totalPrice: 0
+    }]
   });
   
   const [goodsTypes, setGoodsTypes] = useState<GoodsType[]>([]);
@@ -54,7 +64,6 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
     const newItems = [...formData.outboundItems];
     const item = { ...newItems[index], [field]: value };
     
-    // Auto-calculate total price
     if (field === 'totalQuantity' || field === 'farePerPiece') {
       item.totalPrice = item.totalQuantity * item.farePerPiece;
     }
@@ -82,44 +91,31 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
     }));
   };
 
-  // Initialize with empty rows if no items exist
-  useEffect(() => {
-    if (formData.outboundItems.length === 0) {
-      const initialItems = Array.from({ length: 15 }, (_, i) => ({
-        id: `temp-${i + 1}`,
-        srNo: i + 1,
-        customerName: "",
-        receiverName: "",
-        goodsTypeId: "",
-        totalWeight: 0,
-        totalQuantity: 0,
-        farePerPiece: 0,
-        totalPrice: 0
-      }));
-      setFormData(prev => ({ ...prev, outboundItems: initialItems }));
-    }
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      // Create outbound trip
+      if (!data.tripId) {
+        console.error('Trip ID not found');
+        return;
+      }
+
       const { data: outboundTrip, error: tripError } = await supabase
         .from('outbound_trips')
         .insert({
-          trip_id: data.tripNumber, // This will be the actual trip ID from step 1
+          trip_id: data.tripId,
           date: formData.outboundDate,
           source: formData.outboundSource,
-          destination: formData.outboundDestination
+          destination: formData.outboundDestination,
+          total_weight: formData.outboundItems.reduce((sum, item) => sum + item.totalWeight, 0),
+          total_fare: formData.outboundItems.reduce((sum, item) => sum + item.totalPrice, 0)
         })
         .select()
         .single();
 
       if (tripError) throw tripError;
 
-      // Save valid items
       const validItems = formData.outboundItems.filter(item => 
         item.customerName.trim() !== "" || item.receiverName.trim() !== ""
       );
@@ -144,11 +140,11 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
         if (itemsError) throw itemsError;
       }
 
-      toast.success('Trip created successfully! 🎉');
+      toast.success('Outbound trip details saved successfully! 🎉');
       onComplete(formData);
     } catch (error) {
       console.error('Error creating outbound trip:', error);
-      toast.error('Failed to create trip');
+      toast.error('Failed to save outbound trip details');
     } finally {
       setLoading(false);
     }
@@ -158,7 +154,6 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Route Information */}
       <Card className="border-l-4 border-l-orange-500">
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -205,7 +200,6 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
         </CardContent>
       </Card>
 
-      {/* Customer Details */}
       <Card className="border-l-4 border-l-purple-500">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -235,14 +229,13 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
               </thead>
               <tbody>
                 {formData.outboundItems.map((item, index) => (
-                  <tr key={item.id} className={`border-b hover:bg-gray-50 ${index < 15 ? 'bg-purple-50' : ''}`}>
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
                     <td className="p-2 font-medium">{item.srNo}</td>
                     <td className="p-2">
                       <Input
                         value={item.customerName}
                         onChange={(e) => handleItemChange(index, 'customerName', e.target.value)}
                         placeholder="Customer name"
-                        className={`${index < 15 ? 'border-purple-300' : ''}`}
                       />
                     </td>
                     <td className="p-2">
@@ -250,7 +243,6 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
                         value={item.receiverName}
                         onChange={(e) => handleItemChange(index, 'receiverName', e.target.value)}
                         placeholder="Receiver name"
-                        className={`${index < 15 ? 'border-purple-300' : ''}`}
                       />
                     </td>
                     <td className="p-2">
@@ -258,7 +250,7 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
                         value={item.goodsTypeId} 
                         onValueChange={(value) => handleItemChange(index, 'goodsTypeId', value)}
                       >
-                        <SelectTrigger className={`${index < 15 ? 'border-purple-300' : ''}`}>
+                        <SelectTrigger>
                           <SelectValue placeholder="Select goods" />
                         </SelectTrigger>
                         <SelectContent>
@@ -275,7 +267,6 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
                         type="number"
                         value={item.totalWeight}
                         onChange={(e) => handleItemChange(index, 'totalWeight', parseFloat(e.target.value) || 0)}
-                        className={`${index < 15 ? 'border-purple-300' : ''}`}
                       />
                     </td>
                     <td className="p-2">
@@ -283,7 +274,6 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
                         type="number"
                         value={item.totalQuantity}
                         onChange={(e) => handleItemChange(index, 'totalQuantity', parseInt(e.target.value) || 0)}
-                        className={`${index < 15 ? 'border-purple-300' : ''}`}
                       />
                     </td>
                     <td className="p-2">
@@ -291,7 +281,6 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
                         type="number"
                         value={item.farePerPiece}
                         onChange={(e) => handleItemChange(index, 'farePerPiece', parseFloat(e.target.value) || 0)}
-                        className={`${index < 15 ? 'border-purple-300' : ''}`}
                       />
                     </td>
                     <td className="p-2 font-semibold">₹{item.totalPrice.toLocaleString()}</td>
@@ -322,8 +311,7 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
           Previous
         </Button>
         <Button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700">
-          <CheckCircle className="h-4 w-4 mr-2" />
-          {loading ? "Creating Trip..." : "Complete Trip Creation"}
+          {loading ? "Saving..." : "Save Outbound Details"}
         </Button>
       </div>
     </form>

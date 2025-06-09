@@ -32,7 +32,8 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
     tripNumber: data.tripNumber || `TR-${Date.now().toString().slice(-6)}`,
     vehicleId: data.vehicleId || "",
     localDriverId: data.localDriverId || "",
-    routeDriverId: data.routeDriverId || ""
+    routeDriverId: data.routeDriverId || "",
+    status: data.status || "active"
   });
   
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -64,7 +65,7 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      const { data: tripData, error } = await supabase
         .from('trips')
         .insert({
           trip_number: formData.tripNumber,
@@ -72,11 +73,17 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
           vehicle_id: formData.vehicleId || null,
           local_driver_id: formData.localDriverId || null,
           route_driver_id: formData.routeDriverId || null,
-          status: 'active'
-        });
+          status: formData.status
+        })
+        .select()
+        .single();
 
       if (error) throw error;
-      onNext(formData);
+      
+      onNext({ 
+        ...formData, 
+        tripId: tripData.id 
+      });
     } catch (error) {
       console.error('Error creating trip:', error);
     } finally {
@@ -104,6 +111,20 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
                 required
                 className="mt-1"
               />
+            </div>
+
+            <div>
+              <Label htmlFor="status">Trip Status</Label>
+              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -172,7 +193,7 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
           Cancel
         </Button>
         <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-          {loading ? "Creating..." : "Next: Inbound Details"}
+          {loading ? "Creating..." : "Save Basic Details"}
         </Button>
       </div>
     </form>

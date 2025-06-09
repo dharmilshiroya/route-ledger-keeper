@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ArrowLeft, ArrowRight } from "lucide-react";
+import { Check, ArrowLeft, ArrowRight, CheckCircle } from "lucide-react";
 import { TripBasicDetails } from "./wizard/TripBasicDetails";
 import { TripInboundDetails } from "./wizard/TripInboundDetails";
 import { TripOutboundDetails } from "./wizard/TripOutboundDetails";
@@ -14,13 +14,13 @@ interface CreateTripWizardProps {
 }
 
 export interface TripData {
-  // Step 1: Basic Details
+  tripId?: string;
   tripNumber: string;
   vehicleId: string;
   localDriverId: string;
   routeDriverId: string;
+  status: string;
   
-  // Step 2: Inbound Details
   inboundDate: string;
   inboundSource: string;
   inboundDestination: string;
@@ -36,7 +36,6 @@ export interface TripData {
     totalPrice: number;
   }>;
   
-  // Step 3: Outbound Details
   outboundDate: string;
   outboundSource: string;
   outboundDestination: string;
@@ -61,10 +60,11 @@ const steps = [
 
 export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [tripData, setTripData] = useState<Partial<TripData>>({
-    inboundItems: Array.from({ length: 15 }, (_, i) => ({
-      id: `temp-${i + 1}`,
-      srNo: i + 1,
+    inboundItems: [{
+      id: `temp-1`,
+      srNo: 1,
       customerName: "",
       receiverName: "",
       goodsTypeId: "",
@@ -72,10 +72,10 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
       totalQuantity: 0,
       farePerPiece: 0,
       totalPrice: 0
-    })),
-    outboundItems: Array.from({ length: 15 }, (_, i) => ({
-      id: `temp-${i + 1}`,
-      srNo: i + 1,
+    }],
+    outboundItems: [{
+      id: `temp-1`,
+      srNo: 1,
       customerName: "",
       receiverName: "",
       goodsTypeId: "",
@@ -83,8 +83,26 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
       totalQuantity: 0,
       farePerPiece: 0,
       totalPrice: 0
-    }))
+    }]
   });
+
+  const handleStepComplete = (stepData: Partial<TripData>) => {
+    setTripData(prev => ({ ...prev, ...stepData }));
+    
+    if (!completedSteps.includes(currentStep)) {
+      setCompletedSteps(prev => [...prev, currentStep]);
+    }
+    
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleStepClick = (stepNumber: number) => {
+    if (stepNumber === 1 || completedSteps.includes(1)) {
+      setCurrentStep(stepNumber);
+    }
+  };
 
   const handleNext = () => {
     if (currentStep < 3) {
@@ -98,17 +116,20 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
     }
   };
 
-  const handleStepComplete = (stepData: Partial<TripData>) => {
-    setTripData(prev => ({ ...prev, ...stepData }));
-    if (currentStep === 3) {
-      onComplete();
-    } else {
-      handleNext();
-    }
+  const handleFinalSubmit = async () => {
+    onComplete();
+  };
+
+  const isStepAccessible = (step: number) => {
+    return step === 1 || completedSteps.includes(1);
   };
 
   const isStepCompleted = (step: number) => {
-    return step < currentStep;
+    return completedSteps.includes(step);
+  };
+
+  const canCompleteTrip = () => {
+    return completedSteps.includes(1);
   };
 
   return (
@@ -119,25 +140,30 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
             Create New Trip
           </CardTitle>
           
-          {/* Progress Steps */}
           <div className="flex justify-center mt-6">
             <div className="flex items-center space-x-4">
               {steps.map((step, index) => (
                 <div key={step.id} className="flex items-center">
                   <div className="flex flex-col items-center">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-                      currentStep === step.id 
-                        ? 'bg-blue-600 border-blue-600 text-white' 
-                        : isStepCompleted(step.id)
-                        ? 'bg-green-600 border-green-600 text-white'
-                        : 'bg-white border-gray-300 text-gray-500'
-                    }`}>
+                    <button
+                      onClick={() => handleStepClick(step.id)}
+                      disabled={!isStepAccessible(step.id)}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                        currentStep === step.id 
+                          ? 'bg-blue-600 border-blue-600 text-white' 
+                          : isStepCompleted(step.id)
+                          ? 'bg-green-600 border-green-600 text-white hover:bg-green-700'
+                          : isStepAccessible(step.id)
+                          ? 'bg-white border-gray-300 text-gray-500 hover:border-blue-300 hover:text-blue-500'
+                          : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
                       {isStepCompleted(step.id) ? (
                         <Check className="h-5 w-5" />
                       ) : (
                         step.id
                       )}
-                    </div>
+                    </button>
                     <div className="mt-2 text-center">
                       <div className={`text-sm font-medium ${
                         currentStep === step.id ? 'text-blue-600' : 'text-gray-600'
@@ -156,6 +182,19 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
               ))}
             </div>
           </div>
+          
+          {canCompleteTrip() && (
+            <div className="flex justify-center mt-4">
+              <Button 
+                onClick={handleFinalSubmit}
+                className="bg-green-600 hover:bg-green-700"
+                size="sm"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Complete Trip Creation
+              </Button>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent className="p-6">
