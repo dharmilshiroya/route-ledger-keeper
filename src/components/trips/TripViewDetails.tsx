@@ -1,8 +1,10 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Truck, Users, MapPin, Package, Calendar, Edit } from "lucide-react";
+import { TripDetails } from "./TripDetails";
 
 interface Trip {
   id: string;
@@ -41,6 +43,8 @@ interface TripViewDetailsProps {
 }
 
 export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps) {
+  const [showEditForm, setShowEditForm] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -63,8 +67,27 @@ export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps)
 
   const totals = calculateTripTotals();
 
+  const handleEditClick = () => {
+    setShowEditForm(true);
+  };
+
+  const handleEditClose = () => {
+    setShowEditForm(false);
+    onEdit(); // Refresh the trip data
+  };
+
+  if (showEditForm) {
+    return (
+      <TripDetails
+        trip={trip}
+        onClose={handleEditClose}
+        onTripUpdated={onEdit}
+      />
+    );
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-hidden">
       <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center justify-between">
@@ -85,7 +108,7 @@ export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps)
               </div>
             </div>
             <div className="flex space-x-2">
-              <Button onClick={onEdit} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleEditClick} className="bg-blue-600 hover:bg-blue-700">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Trip
               </Button>
@@ -140,7 +163,7 @@ export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps)
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">License Plate:</span>
-                  <span className="font-semibold">{trip.vehicles?.license_plate || "Not assigned"}</span>
+                  <span className="font-semibold">{trip.vehicles?.license_plate || "N/A"}</span>
                 </div>
               </CardContent>
             </Card>
@@ -156,13 +179,13 @@ export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps)
                 <div className="flex justify-between">
                   <span className="text-gray-600">Local Driver:</span>
                   <span className="font-semibold">
-                    {trip.local_driver ? `${trip.local_driver.first_name} ${trip.local_driver.last_name}` : "Not assigned"}
+                    {trip.local_driver ? `${trip.local_driver.first_name} ${trip.local_driver.last_name}` : "N/A"}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Route Driver:</span>
                   <span className="font-semibold">
-                    {trip.route_driver ? `${trip.route_driver.first_name} ${trip.route_driver.last_name}` : "Not assigned"}
+                    {trip.route_driver ? `${trip.route_driver.first_name} ${trip.route_driver.last_name}` : "N/A"}
                   </span>
                 </div>
               </CardContent>
@@ -187,14 +210,14 @@ export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps)
                           {inbound.source} → {inbound.destination}
                         </span>
                         <Badge variant="outline" className="text-blue-600 border-blue-300">
-                          ₹{inbound.total_fare?.toLocaleString()}
+                          ₹{inbound.total_fare?.toLocaleString() || "N/A"}
                         </Badge>
                       </div>
                       <div className="flex items-center text-sm text-blue-600">
                         <Calendar className="h-3 w-3 mr-1" />
                         {new Date(inbound.date).toLocaleDateString()}
                         <Package className="h-3 w-3 ml-3 mr-1" />
-                        {inbound.total_weight} kg
+                        {inbound.total_weight || "N/A"} kg
                       </div>
                     </div>
                   ))}
@@ -218,14 +241,14 @@ export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps)
                           {outbound.source} → {outbound.destination}
                         </span>
                         <Badge variant="outline" className="text-orange-600 border-orange-300">
-                          ₹{outbound.total_fare?.toLocaleString()}
+                          ₹{outbound.total_fare?.toLocaleString() || "N/A"}
                         </Badge>
                       </div>
                       <div className="flex items-center text-sm text-orange-600">
                         <Calendar className="h-3 w-3 mr-1" />
                         {new Date(outbound.date).toLocaleDateString()}
                         <Package className="h-3 w-3 ml-3 mr-1" />
-                        {outbound.total_weight} kg
+                        {outbound.total_weight || "N/A"} kg
                       </div>
                     </div>
                   ))}

@@ -4,13 +4,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Truck, MapPin, Calendar, Eye, Edit, Users } from "lucide-react";
+import { Plus, Search, Truck, MapPin, Calendar, Eye, Users, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { CreateTripWizard } from "@/components/trips/CreateTripWizard";
 import { TripViewDetails } from "@/components/trips/TripViewDetails";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Trip {
   id: string;
@@ -49,6 +60,7 @@ const Trips = () => {
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const [showTripView, setShowTripView] = useState(false);
+  const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -79,6 +91,32 @@ const Trips = () => {
       toast.error('Failed to load trips');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteTrip = async (tripId: string) => {
+    try {
+      setDeletingTripId(tripId);
+      
+      // Delete related inbound and outbound trips first
+      await supabase.from('inbound_trips').delete().eq('trip_id', tripId);
+      await supabase.from('outbound_trips').delete().eq('trip_id', tripId);
+      
+      // Then delete the main trip
+      const { error } = await supabase
+        .from('trips')
+        .delete()
+        .eq('id', tripId);
+
+      if (error) throw error;
+
+      toast.success('Trip deleted successfully');
+      fetchTrips();
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      toast.error('Failed to delete trip');
+    } finally {
+      setDeletingTripId(null);
     }
   };
 
@@ -178,7 +216,7 @@ const Trips = () => {
                     <div className="flex items-center space-x-3 mb-3">
                       <Truck className="h-6 w-6 text-blue-600" />
                       <h3 className="text-xl font-bold text-blue-900">
-                        {trip.vehicles?.license_plate || "No Vehicle"}
+                        {trip.vehicles?.license_plate || "N/A"}
                       </h3>
                       <Badge className={`${getStatusColor(trip.status)} border font-medium`}>
                         {trip.status.toUpperCase()}
@@ -191,14 +229,14 @@ const Trips = () => {
                         <Users className="h-4 w-4 text-green-500" />
                         <span className="text-gray-600">Local:</span>
                         <span className="font-medium">
-                          {trip.local_driver ? `${trip.local_driver.first_name} ${trip.local_driver.last_name}` : "Not assigned"}
+                          {trip.local_driver ? `${trip.local_driver.first_name} ${trip.local_driver.last_name}` : "N/A"}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Users className="h-4 w-4 text-purple-500" />
                         <span className="text-gray-600">Route:</span>
                         <span className="font-medium">
-                          {trip.route_driver ? `${trip.route_driver.first_name} ${trip.route_driver.last_name}` : "Not assigned"}
+                          {trip.route_driver ? `${trip.route_driver.first_name} ${trip.route_driver.last_name}` : "N/A"}
                         </span>
                       </div>
                       {inboundTrip && (
@@ -221,7 +259,7 @@ const Trips = () => {
                             {inboundTrip.source} → {inboundTrip.destination}
                           </div>
                           <div className="flex justify-between mt-2 text-xs">
-                            <span>Weight: {totals.inboundWeight} kg</span>
+                            <span>Weight: {totals.inboundWeight || "N/A"} kg</span>
                             <span className="font-semibold">₹{totals.inboundTotal.toLocaleString()}</span>
                           </div>
                         </div>
@@ -240,7 +278,7 @@ const Trips = () => {
                             {outboundTrip.source} → {outboundTrip.destination}
                           </div>
                           <div className="flex justify-between mt-2 text-xs">
-                            <span>Weight: {totals.outboundWeight} kg</span>
+                            <span>Weight: {totals.outboundWeight || "N/A"} kg</span>
                             <span className="font-semibold">₹{totals.outboundTotal.toLocaleString()}</span>
                           </div>
                         </div>
@@ -254,7 +292,7 @@ const Trips = () => {
                     </div>
                     <div className="text-sm text-gray-500">Total Fare</div>
                     <div className="text-xs text-gray-400 mt-1">
-                      Total Weight: {(totals.inboundWeight + totals.outboundWeight)} kg
+                      Total Weight: {(totals.inboundWeight + totals.outboundWeight) || "N/A"} kg
                     </div>
                   </div>
                 </div>
@@ -269,14 +307,37 @@ const Trips = () => {
                     <Eye className="h-4 w-4" />
                     <span>View Details</span>
                   </Button>
-                  <Button 
-                    size="sm"
-                    onClick={() => handleViewTrip(trip)}
-                    className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Edit className="h-4 w-4" />
-                    <span>Edit Trip</span>
-                  </Button>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center space-x-1 hover:bg-red-50 hover:border-red-300 text-red-600"
+                        disabled={deletingTripId === trip.id}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>{deletingTripId === trip.id ? "Deleting..." : "Delete"}</span>
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Trip</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete trip #{trip.trip_number}? This action cannot be undone and will permanently remove all associated data including inbound/outbound trips and items.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteTrip(trip.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Delete Trip
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardContent>
             </Card>
@@ -295,10 +356,14 @@ const Trips = () => {
       )}
 
       {showCreateWizard && (
-        <CreateTripWizard
-          onComplete={handleTripCreated}
-          onCancel={() => setShowCreateWizard(false)}
-        />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-hidden">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <CreateTripWizard
+              onComplete={handleTripCreated}
+              onCancel={() => setShowCreateWizard(false)}
+            />
+          </div>
+        </div>
       )}
 
       {showTripView && selectedTrip && (
@@ -308,7 +373,9 @@ const Trips = () => {
             setShowTripView(false);
             setSelectedTrip(null);
           }}
-          onEdit={() => handleViewTrip(selectedTrip)}
+          onEdit={() => {
+            fetchTrips();
+          }}
         />
       )}
     </div>

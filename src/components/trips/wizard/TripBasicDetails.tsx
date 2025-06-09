@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +28,6 @@ interface TripBasicDetailsProps {
 
 export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsProps) {
   const [formData, setFormData] = useState({
-    tripNumber: data.tripNumber || `TR-${Date.now().toString().slice(-6)}`,
     vehicleId: data.vehicleId || "",
     localDriverId: data.localDriverId || "",
     routeDriverId: data.routeDriverId || "",
@@ -39,11 +37,29 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tripNumber, setTripNumber] = useState("");
   const { user } = useAuth();
 
   useEffect(() => {
     fetchDriversAndVehicles();
+    generateTripNumber();
   }, []);
+
+  const generateTripNumber = async () => {
+    try {
+      // Get the count of existing trips for this user to generate a unique trip number
+      const { count } = await supabase
+        .from('trips')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user?.id);
+
+      const tripNum = `TR-${Date.now().toString().slice(-6)}-${(count || 0) + 1}`;
+      setTripNumber(tripNum);
+    } catch (error) {
+      console.error('Error generating trip number:', error);
+      setTripNumber(`TR-${Date.now().toString().slice(-6)}`);
+    }
+  };
 
   const fetchDriversAndVehicles = async () => {
     try {
@@ -63,14 +79,20 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
     e.preventDefault();
     if (!user) return;
 
+    // Validate that vehicle is selected
+    if (!formData.vehicleId) {
+      alert('Please select a vehicle to continue');
+      return;
+    }
+
     setLoading(true);
     try {
       const { data: tripData, error } = await supabase
         .from('trips')
         .insert({
-          trip_number: formData.tripNumber,
+          trip_number: tripNumber,
           user_id: user.id,
-          vehicle_id: formData.vehicleId || null,
+          vehicle_id: formData.vehicleId,
           local_driver_id: formData.localDriverId || null,
           route_driver_id: formData.routeDriverId || null,
           status: formData.status
@@ -82,6 +104,7 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
       
       onNext({ 
         ...formData, 
+        tripNumber,
         tripId: tripData.id 
       });
     } catch (error) {
@@ -92,110 +115,122 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center text-lg">
-              <Truck className="h-5 w-5 mr-2 text-blue-600" />
-              Trip Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="trip_number">Trip Number</Label>
-              <Input
-                id="trip_number"
-                value={formData.tripNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, tripNumber: e.target.value }))}
-                required
-                className="mt-1"
-              />
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-hidden">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardTitle className="text-2xl">Basic Trip Details</CardTitle>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span>Trip Number:</span>
+            <span className="font-mono font-semibold text-blue-600">{tripNumber}</span>
+            <span className="text-xs text-gray-500">(Auto-generated)</span>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="border-l-4 border-l-blue-500">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-lg">
+                    <Truck className="h-5 w-5 mr-2 text-blue-600" />
+                    Trip Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="status">Trip Status</Label>
+                    <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="vehicle">Vehicle <span className="text-red-500">*</span></Label>
+                    <Select 
+                      value={formData.vehicleId} 
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, vehicleId: value }))}
+                      required
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select vehicle (required)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.license_plate}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-l-4 border-l-green-500">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-lg">
+                    <Users className="h-5 w-5 mr-2 text-green-600" />
+                    Driver Assignment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="local_driver">Local Driver</Label>
+                    <Select value={formData.localDriverId} onValueChange={(value) => setFormData(prev => ({ ...prev, localDriverId: value }))}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select local driver" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {drivers.map((driver) => (
+                          <SelectItem key={driver.id} value={driver.id}>
+                            {driver.first_name} {driver.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="route_driver">Route Driver</Label>
+                    <Select value={formData.routeDriverId} onValueChange={(value) => setFormData(prev => ({ ...prev, routeDriverId: value }))}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select route driver" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {drivers.map((driver) => (
+                          <SelectItem key={driver.id} value={driver.id}>
+                            {driver.first_name} {driver.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            <div>
-              <Label htmlFor="status">Trip Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex justify-end space-x-4 pt-6 border-t">
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={loading || !formData.vehicleId} 
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {loading ? "Creating..." : "Save Basic Details"}
+              </Button>
             </div>
-
-            <div>
-              <Label htmlFor="vehicle">Vehicle</Label>
-              <Select value={formData.vehicleId} onValueChange={(value) => setFormData(prev => ({ ...prev, vehicleId: value }))}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select vehicle" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vehicles.map((vehicle) => (
-                    <SelectItem key={vehicle.id} value={vehicle.id}>
-                      {vehicle.license_plate}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center text-lg">
-              <Users className="h-5 w-5 mr-2 text-green-600" />
-              Driver Assignment
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="local_driver">Local Driver</Label>
-              <Select value={formData.localDriverId} onValueChange={(value) => setFormData(prev => ({ ...prev, localDriverId: value }))}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select local driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  {drivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
-                      {driver.first_name} {driver.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="route_driver">Route Driver</Label>
-              <Select value={formData.routeDriverId} onValueChange={(value) => setFormData(prev => ({ ...prev, routeDriverId: value }))}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select route driver" />
-                </SelectTrigger>
-                <SelectContent>
-                  {drivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
-                      {driver.first_name} {driver.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex justify-end space-x-4 pt-6 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700">
-          {loading ? "Creating..." : "Save Basic Details"}
-        </Button>
-      </div>
-    </form>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
