@@ -34,6 +34,32 @@ interface TripItemsListProps {
   type: "inbound" | "outbound";
 }
 
+interface SupabaseSubTripResponse {
+  id: string;
+  date: string;
+  source: string;
+  destination: string;
+  total_weight: number | null;
+  total_fare: number | null;
+}
+
+interface SupabaseTripItemResponse {
+  id: string;
+  sr_no: number;
+  customer_name: string;
+  receiver_name: string;
+  total_weight: number;
+  total_quantity: number;
+  fare_per_piece: number;
+  total_price: number;
+  goods_type_id: string | null;
+}
+
+interface SupabaseGoodsTypeResponse {
+  id: string;
+  name: string;
+}
+
 export function TripItemsList({ tripId, type }: TripItemsListProps) {
   const [subTrips, setSubTrips] = useState<SubTrip[]>([]);
   const [selectedSubTrip, setSelectedSubTrip] = useState<string | null>(null);
@@ -66,7 +92,8 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
 
       if (response.error) throw response.error;
       
-      const mappedData: SubTrip[] = (response.data || []).map((item: any) => ({
+      const rawData = response.data as SupabaseSubTripResponse[] | null;
+      const mappedData: SubTrip[] = (rawData || []).map((item) => ({
         id: item.id,
         date: item.date,
         source: item.source,
@@ -102,11 +129,11 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
 
       if (itemsResponse.error) throw itemsResponse.error;
 
-      const rawItemsData = itemsResponse.data || [];
+      const rawItemsData = itemsResponse.data as SupabaseTripItemResponse[] | null;
       
-      const goodsTypeIds = rawItemsData
-        .map((item: any) => item.goods_type_id)
-        .filter((id: any) => Boolean(id));
+      const goodsTypeIds = (rawItemsData || [])
+        .map((item) => item.goods_type_id)
+        .filter((id): id is string => Boolean(id));
       
       let goodsTypesMap: Record<string, string> = {};
       
@@ -117,14 +144,15 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
           .in('id', goodsTypeIds);
           
         if (!goodsResponse.error && goodsResponse.data) {
-          goodsTypesMap = (goodsResponse.data || []).reduce((acc: any, goods: any) => {
+          const goodsData = goodsResponse.data as SupabaseGoodsTypeResponse[];
+          goodsTypesMap = goodsData.reduce((acc, goods) => {
             acc[goods.id] = goods.name;
             return acc;
           }, {} as Record<string, string>);
         }
       }
 
-      const mappedItems: TripItem[] = (rawItemsData || []).map((item: any) => ({
+      const mappedItems: TripItem[] = (rawItemsData || []).map((item) => ({
         id: item.id,
         sr_no: item.sr_no,
         customer_name: item.customer_name,
