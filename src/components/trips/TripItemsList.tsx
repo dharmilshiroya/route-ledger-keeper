@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { TripItemForm } from "./TripItemForm";
 import { TripItemDetails } from "./TripItemDetails";
 
-// Explicit interfaces to avoid complex type inference
 interface TripItem {
   id: string;
   sr_no: number;
@@ -28,32 +27,6 @@ interface SubTrip {
   destination: string;
   total_weight: number | null;
   total_fare: number | null;
-}
-
-interface RawSubTripData {
-  id: string;
-  date: string;
-  source: string;
-  destination: string;
-  total_weight: number | null;
-  total_fare: number | null;
-}
-
-interface RawTripItemData {
-  id: string;
-  sr_no: number;
-  customer_name: string;
-  receiver_name: string;
-  total_weight: number;
-  total_quantity: number;
-  fare_per_piece: number;
-  total_price: number;
-  goods_type_id: string | null;
-}
-
-interface GoodsTypeData {
-  id: string;
-  name: string;
 }
 
 interface TripItemsListProps {
@@ -93,8 +66,7 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
 
       if (response.error) throw response.error;
       
-      const rawData = response.data as RawSubTripData[] | null;
-      const mappedData: SubTrip[] = (rawData || []).map((item) => ({
+      const mappedData: SubTrip[] = (response.data || []).map((item: any) => ({
         id: item.id,
         date: item.date,
         source: item.source,
@@ -130,11 +102,11 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
 
       if (itemsResponse.error) throw itemsResponse.error;
 
-      const rawItemsData = itemsResponse.data as RawTripItemData[] | null;
+      const rawItemsData = itemsResponse.data || [];
       
-      const goodsTypeIds = (rawItemsData || [])
-        .map((item) => item.goods_type_id)
-        .filter((id): id is string => Boolean(id));
+      const goodsTypeIds = rawItemsData
+        .map((item: any) => item.goods_type_id)
+        .filter((id: any) => Boolean(id));
       
       let goodsTypesMap: Record<string, string> = {};
       
@@ -145,15 +117,14 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
           .in('id', goodsTypeIds);
           
         if (!goodsResponse.error && goodsResponse.data) {
-          const rawGoodsData = goodsResponse.data as GoodsTypeData[] | null;
-          goodsTypesMap = (rawGoodsData || []).reduce((acc, goods) => {
+          goodsTypesMap = (goodsResponse.data || []).reduce((acc: any, goods: any) => {
             acc[goods.id] = goods.name;
             return acc;
           }, {} as Record<string, string>);
         }
       }
 
-      const mappedItems: TripItem[] = (rawItemsData || []).map((item) => ({
+      const mappedItems: TripItem[] = (rawItemsData || []).map((item: any) => ({
         id: item.id,
         sr_no: item.sr_no,
         customer_name: item.customer_name,
@@ -175,38 +146,46 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
   const handleItemCreated = () => {
     setShowItemForm(false);
     fetchTripItems();
-    fetchSubTrips(); // Refresh to update totals
+    fetchSubTrips();
   };
 
   const currentSubTrip = subTrips.find(trip => trip.id === selectedSubTrip);
 
   if (loading) {
-    return <div className="text-center py-4">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   if (subTrips.length === 0) {
     return (
-      <Card>
-        <CardContent className="text-center py-8">
-          <p className="text-gray-500">No {type} trips found. Add one to get started.</p>
+      <Card className="border-dashed border-2 border-gray-200">
+        <CardContent className="text-center py-12">
+          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <Plus className="h-8 w-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No {type} trips found</h3>
+          <p className="text-gray-500">Add your first {type} trip to get started.</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Sub-trip selector */}
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-3">
         {subTrips.map((subTrip) => (
           <Button
             key={subTrip.id}
             variant={selectedSubTrip === subTrip.id ? "default" : "outline"}
             size="sm"
             onClick={() => setSelectedSubTrip(subTrip.id)}
+            className="transition-all duration-200 hover:scale-105"
           >
-            {subTrip.source} → {subTrip.destination}
-            <span className="ml-2 text-xs">
+            <span className="font-medium">{subTrip.source} → {subTrip.destination}</span>
+            <span className="ml-2 text-xs opacity-75">
               ({new Date(subTrip.date).toLocaleDateString()})
             </span>
           </Button>
@@ -214,78 +193,110 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       </div>
 
       {currentSubTrip && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h4 className="font-semibold">{currentSubTrip.source} → {currentSubTrip.destination}</h4>
-                <p className="text-sm text-gray-600">
-                  Date: {new Date(currentSubTrip.date).toLocaleDateString()} | 
-                  Weight: {currentSubTrip.total_weight || 0} kg | 
-                  Fare: ₹{currentSubTrip.total_fare || 0}
-                </p>
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+          <CardContent className="p-6">
+            <div className="flex justify-between items-start mb-6">
+              <div className="space-y-2">
+                <h4 className="text-xl font-bold text-gray-900">
+                  {currentSubTrip.source} → {currentSubTrip.destination}
+                </h4>
+                <div className="flex items-center space-x-6 text-sm text-gray-600">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">Date:</span>
+                    <span>{new Date(currentSubTrip.date).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">Weight:</span>
+                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                      {currentSubTrip.total_weight || 0} kg
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">Fare:</span>
+                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
+                      ₹{currentSubTrip.total_fare || 0}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <Button onClick={() => setShowItemForm(true)} size="sm">
+              <Button 
+                onClick={() => setShowItemForm(true)} 
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg hover:shadow-xl transition-all duration-200"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
               </Button>
             </div>
 
-            {/* Trip items table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2">Sr.</th>
-                    <th className="text-left p-2">Customer</th>
-                    <th className="text-left p-2">Receiver</th>
-                    <th className="text-left p-2">Goods</th>
-                    <th className="text-left p-2">Weight</th>
-                    <th className="text-left p-2">Qty</th>
-                    <th className="text-left p-2">Rate</th>
-                    <th className="text-left p-2">Amount</th>
-                    <th className="text-left p-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tripItems.map((item) => (
-                    <tr key={item.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2">{item.sr_no}</td>
-                      <td className="p-2">{item.customer_name}</td>
-                      <td className="p-2">{item.receiver_name}</td>
-                      <td className="p-2">{item.goods_types?.name || "N/A"}</td>
-                      <td className="p-2">{item.total_weight} kg</td>
-                      <td className="p-2">{item.total_quantity}</td>
-                      <td className="p-2">₹{item.fare_per_piece}</td>
-                      <td className="p-2">₹{item.total_price}</td>
-                      <td className="p-2">
-                        <div className="flex space-x-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setShowItemDetails(true);
-                            }}
-                          >
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {tripItems.length === 0 && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <td colSpan={9} className="text-center py-4 text-gray-500">
-                        No items found. Add some items to this trip.
-                      </td>
+                      <th className="text-left p-4 font-semibold text-gray-700">Sr.</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Customer</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Receiver</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Goods</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Weight</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Qty</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Rate</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Amount</th>
+                      <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {tripItems.map((item, index) => (
+                      <tr key={item.id} className={`border-b border-gray-100 hover:bg-blue-50 transition-colors duration-150 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                        <td className="p-4 font-medium text-gray-900">{item.sr_no}</td>
+                        <td className="p-4 text-gray-700">{item.customer_name}</td>
+                        <td className="p-4 text-gray-700">{item.receiver_name}</td>
+                        <td className="p-4">
+                          <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium">
+                            {item.goods_types?.name || "N/A"}
+                          </span>
+                        </td>
+                        <td className="p-4 font-medium text-gray-900">{item.total_weight} kg</td>
+                        <td className="p-4 font-medium text-gray-900">{item.total_quantity}</td>
+                        <td className="p-4 font-medium text-green-600">₹{item.fare_per_piece}</td>
+                        <td className="p-4 font-bold text-green-700">₹{item.total_price}</td>
+                        <td className="p-4">
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setShowItemDetails(true);
+                              }}
+                              className="hover:bg-blue-50 hover:border-blue-200 transition-colors duration-150"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="hover:bg-orange-50 hover:border-orange-200 transition-colors duration-150"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {tripItems.length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="text-center py-12">
+                          <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                            <Plus className="h-6 w-6 text-gray-400" />
+                          </div>
+                          <p className="text-gray-500 font-medium">No items found</p>
+                          <p className="text-gray-400 text-sm mt-1">Add some items to this trip to get started.</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </CardContent>
         </Card>
