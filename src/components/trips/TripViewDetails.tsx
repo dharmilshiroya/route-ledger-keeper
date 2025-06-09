@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Truck, Users, MapPin, Package, Calendar, Edit } from "lucide-react";
-import { TripDetails } from "./TripDetails";
+import { CreateTripWizard, TripData } from "./CreateTripWizard";
 
 interface Trip {
   id: string;
@@ -76,12 +76,56 @@ export function TripViewDetails({ trip, onClose, onEdit }: TripViewDetailsProps)
     onEdit(); // Refresh the trip data
   };
 
+  // Convert trip data to TripData format for the wizard
+  const convertToTripData = (): Partial<TripData> => {
+    const inboundTrip = trip.inbound_trips?.[0];
+    const outboundTrip = trip.outbound_trips?.[0];
+
+    return {
+      tripId: trip.id,
+      tripNumber: trip.trip_number,
+      vehicleId: trip.vehicle_id || "",
+      localDriverId: trip.local_driver_id || "",
+      routeDriverId: trip.route_driver_id || "",
+      status: trip.status,
+      inboundDate: inboundTrip?.date || new Date().toISOString().split('T')[0],
+      inboundSource: inboundTrip?.source || "",
+      inboundDestination: inboundTrip?.destination || "",
+      outboundDate: outboundTrip?.date || new Date().toISOString().split('T')[0],
+      outboundSource: outboundTrip?.source || "",
+      outboundDestination: outboundTrip?.destination || "",
+      inboundItems: [{
+        id: `temp-1`,
+        srNo: 1,
+        customerName: "",
+        receiverName: "",
+        goodsTypeId: "",
+        totalWeight: 0,
+        totalQuantity: 0,
+        farePerPiece: 0,
+        totalPrice: 0
+      }],
+      outboundItems: [{
+        id: `temp-1`,
+        srNo: 1,
+        customerName: "",
+        receiverName: "",
+        goodsTypeId: "",
+        totalWeight: 0,
+        totalQuantity: 0,
+        farePerPiece: 0,
+        totalPrice: 0
+      }]
+    };
+  };
+
   if (showEditForm) {
     return (
-      <TripDetails
-        trip={trip}
-        onClose={handleEditClose}
-        onTripUpdated={onEdit}
+      <CreateTripWizard
+        onComplete={handleEditClose}
+        onCancel={handleEditClose}
+        tripData={convertToTripData()}
+        isEditing={true}
       />
     );
   }

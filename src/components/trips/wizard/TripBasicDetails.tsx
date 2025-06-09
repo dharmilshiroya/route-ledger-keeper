@@ -24,9 +24,10 @@ interface TripBasicDetailsProps {
   data: Partial<TripData>;
   onNext: (data: Partial<TripData>) => void;
   onCancel: () => void;
+  isEditing?: boolean;
 }
 
-export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsProps) {
+export function TripBasicDetails({ data, onNext, onCancel, isEditing = false }: TripBasicDetailsProps) {
   const [formData, setFormData] = useState({
     vehicleId: data.vehicleId || "",
     localDriverId: data.localDriverId || "",
@@ -37,17 +38,20 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tripNumber, setTripNumber] = useState("");
+  const [tripNumber, setTripNumber] = useState(data.tripNumber || "");
   const { user } = useAuth();
 
   useEffect(() => {
     fetchDriversAndVehicles();
-    generateTripNumber();
-  }, []);
+    if (isEditing && data.tripNumber) {
+      setTripNumber(data.tripNumber);
+    } else if (!isEditing) {
+      generateTripNumber();
+    }
+  }, [isEditing, data.tripNumber]);
 
   const generateTripNumber = async () => {
     try {
-      // Get the count of existing trips for this user to generate a unique trip number
       const { count } = await supabase
         .from('trips')
         .select('*', { count: 'exact', head: true })
@@ -79,7 +83,6 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
     e.preventDefault();
     if (!user) return;
 
-    // Validate that vehicle is selected
     if (!formData.vehicleId) {
       alert('Please select a vehicle to continue');
       return;
@@ -87,28 +90,50 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
 
     setLoading(true);
     try {
-      const { data: tripData, error } = await supabase
-        .from('trips')
-        .insert({
-          trip_number: tripNumber,
-          user_id: user.id,
-          vehicle_id: formData.vehicleId,
-          local_driver_id: formData.localDriverId || null,
-          route_driver_id: formData.routeDriverId || null,
-          status: formData.status
-        })
-        .select()
-        .single();
+      if (isEditing && data.tripId) {
+        // Update existing trip
+        const { error } = await supabase
+          .from('trips')
+          .update({
+            vehicle_id: formData.vehicleId,
+            local_driver_id: formData.localDriverId || null,
+            route_driver_id: formData.routeDriverId || null,
+            status: formData.status
+          })
+          .eq('id', data.tripId);
 
-      if (error) throw error;
-      
-      onNext({ 
-        ...formData, 
-        tripNumber,
-        tripId: tripData.id 
-      });
+        if (error) throw error;
+        
+        onNext({ 
+          ...formData, 
+          tripNumber,
+          tripId: data.tripId 
+        });
+      } else {
+        // Create new trip
+        const { data: tripData, error } = await supabase
+          .from('trips')
+          .insert({
+            trip_number: tripNumber,
+            user_id: user.id,
+            vehicle_id: formData.vehicleId,
+            local_driver_id: formData.localDriverId || null,
+            route_driver_id: formData.routeDriverId || null,
+            status: formData.status
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        onNext({ 
+          ...formData, 
+          tripNumber,
+          tripId: tripData.id 
+        });
+      }
     } catch (error) {
-      console.error('Error creating trip:', error);
+      console.error('Error saving trip:', error);
     } finally {
       setLoading(false);
     }
@@ -118,11 +143,13 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-hidden">
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardTitle className="text-2xl">Basic Trip Details</CardTitle>
+          <CardTitle className="text-2xl">
+            {isEditing ? "Edit Trip Details" : "Basic Trip Details"}
+          </CardTitle>
           <div className="flex items-center space-x-2 text-sm text-gray-600">
             <span>Trip Number:</span>
             <span className="font-mono font-semibold text-blue-600">{tripNumber}</span>
-            <span className="text-xs text-gray-500">(Auto-generated)</span>
+            {!isEditing && <span className="text-xs text-gray-500">(Auto-generated)</span>}
           </div>
         </CardHeader>
         
@@ -225,7 +252,7 @@ export function TripBasicDetails({ data, onNext, onCancel }: TripBasicDetailsPro
                 disabled={loading || !formData.vehicleId} 
                 className="bg-blue-600 hover:bg-blue-700"
               >
-                {loading ? "Creating..." : "Save Basic Details"}
+                {loading ? "Saving..." : isEditing ? "Update Basic Details" : "Save Basic Details"}
               </Button>
             </div>
           </form>

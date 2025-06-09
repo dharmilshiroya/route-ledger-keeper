@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, MapPin, Package, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { TripData } from "../CreateTripWizard";
 
@@ -19,9 +20,10 @@ interface TripOutboundDetailsProps {
   data: Partial<TripData>;
   onComplete: (data: Partial<TripData>) => void;
   onPrevious: () => void;
+  isEditing?: boolean;
 }
 
-export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutboundDetailsProps) {
+export function TripOutboundDetails({ data, onComplete, onPrevious, isEditing = false }: TripOutboundDetailsProps) {
   const [formData, setFormData] = useState({
     outboundDate: data.outboundDate || new Date().toISOString().split('T')[0],
     outboundSource: data.outboundSource || data.inboundDestination || "",
@@ -41,6 +43,9 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
   
   const [goodsTypes, setGoodsTypes] = useState<GoodsType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [newGoodsTypeName, setNewGoodsTypeName] = useState("");
+  const [showNewGoodsType, setShowNewGoodsType] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchGoodsTypes();
@@ -57,6 +62,34 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
       setGoodsTypes(data || []);
     } catch (error) {
       console.error('Error fetching goods types:', error);
+    }
+  };
+
+  const createNewGoodsType = async () => {
+    if (!newGoodsTypeName.trim() || !user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('goods_types')
+        .insert({
+          name: newGoodsTypeName.trim(),
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setGoodsTypes(prev => [...prev, data]);
+      setNewGoodsTypeName("");
+      setShowNewGoodsType(false);
+      toast.success('New goods type added successfully');
+      
+      return data.id;
+    } catch (error) {
+      console.error('Error creating goods type:', error);
+      toast.error('Failed to create goods type');
+      return null;
     }
   };
 
@@ -101,49 +134,69 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
         return;
       }
 
-      const { data: outboundTrip, error: tripError } = await supabase
-        .from('outbound_trips')
-        .insert({
-          trip_id: data.tripId,
-          date: formData.outboundDate,
-          source: formData.outboundSource,
-          destination: formData.outboundDestination,
-          total_weight: formData.outboundItems.reduce((sum, item) => sum + item.totalWeight, 0),
-          total_fare: formData.outboundItems.reduce((sum, item) => sum + item.totalPrice, 0)
-        })
-        .select()
-        .single();
+      if (isEditing) {
+        // Update existing outbound trip
+        const { error: updateError } = await supabase
+          .from('outbound_trips')
+          .update({
+            date: formData.outboundDate,
+            source: formData.outboundSource,
+            destination: formData.outboundDestination,
+            total_weight: formData.outboundItems.reduce((sum, item) => sum + item.totalWeight, 0),
+            total_fare: formData.outboundItems.reduce((sum, item) => sum + item.totalPrice, 0)
+          })
+          .eq('trip_id', data.tripId);
 
-      if (tripError) throw tripError;
+        if (updateError) throw updateError;
+        
+        toast.success('Outbound trip details updated successfully! 🎉');
+        onComplete(formData);
+      } else {
+        // Create new outbound trip
+        const { data: outboundTrip, error: tripError } = await supabase
+          .from('outbound_trips')
+          .insert({
+            trip_id: data.tripId,
+            date: formData.outboundDate,
+            source: formData.outboundSource,
+            destination: formData.outboundDestination,
+            total_weight: formData.outboundItems.reduce((sum, item) => sum + item.totalWeight, 0),
+            total_fare: formData.outboundItems.reduce((sum, item) => sum + item.totalPrice, 0)
+          })
+          .select()
+          .single();
 
-      const validItems = formData.outboundItems.filter(item => 
-        item.customerName.trim() !== "" || item.receiverName.trim() !== ""
-      );
+        if (tripError) throw tripError;
 
-      if (validItems.length > 0) {
-        const itemsToInsert = validItems.map(item => ({
-          outbound_trip_id: outboundTrip.id,
-          sr_no: item.srNo,
-          customer_name: item.customerName,
-          receiver_name: item.receiverName,
-          goods_type_id: item.goodsTypeId || null,
-          total_weight: item.totalWeight,
-          total_quantity: item.totalQuantity,
-          fare_per_piece: item.farePerPiece,
-          total_price: item.totalPrice
-        }));
+        const validItems = formData.outboundItems.filter(item => 
+          item.customerName.trim() !== "" || item.receiverName.trim() !== ""
+        );
 
-        const { error: itemsError } = await supabase
-          .from('outbound_trip_items')
-          .insert(itemsToInsert);
+        if (validItems.length > 0) {
+          const itemsToInsert = validItems.map(item => ({
+            outbound_trip_id: outboundTrip.id,
+            sr_no: item.srNo,
+            customer_name: item.customerName,
+            receiver_name: item.receiverName,
+            goods_type_id: item.goodsTypeId || null,
+            total_weight: item.totalWeight,
+            total_quantity: item.totalQuantity,
+            fare_per_piece: item.farePerPiece,
+            total_price: item.totalPrice
+          }));
 
-        if (itemsError) throw itemsError;
+          const { error: itemsError } = await supabase
+            .from('outbound_trip_items')
+            .insert(itemsToInsert);
+
+          if (itemsError) throw itemsError;
+        }
+
+        toast.success('Outbound trip details saved successfully! 🎉');
+        onComplete(formData);
       }
-
-      toast.success('Outbound trip details saved successfully! 🎉');
-      onComplete(formData);
     } catch (error) {
-      console.error('Error creating outbound trip:', error);
+      console.error('Error saving outbound trip:', error);
       toast.error('Failed to save outbound trip details');
     } finally {
       setLoading(false);
@@ -218,8 +271,8 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
               <thead>
                 <tr className="border-b-2 border-gray-200">
                   <th className="text-left p-2 font-semibold">Sr.</th>
-                  <th className="text-left p-2 font-semibold">Customer</th>
-                  <th className="text-left p-2 font-semibold">Receiver</th>
+                  <th className="text-left p-2 font-semibold w-40">Customer</th>
+                  <th className="text-left p-2 font-semibold w-40">Receiver</th>
                   <th className="text-left p-2 font-semibold">Goods</th>
                   <th className="text-left p-2 font-semibold">Weight (kg)</th>
                   <th className="text-left p-2 font-semibold">Quantity</th>
@@ -236,6 +289,7 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
                         value={item.customerName}
                         onChange={(e) => handleItemChange(index, 'customerName', e.target.value)}
                         placeholder="Customer name"
+                        className="w-full min-w-40"
                       />
                     </td>
                     <td className="p-2">
@@ -243,44 +297,108 @@ export function TripOutboundDetails({ data, onComplete, onPrevious }: TripOutbou
                         value={item.receiverName}
                         onChange={(e) => handleItemChange(index, 'receiverName', e.target.value)}
                         placeholder="Receiver name"
+                        className="w-full min-w-40"
                       />
                     </td>
                     <td className="p-2">
-                      <Select 
-                        value={item.goodsTypeId} 
-                        onValueChange={(value) => handleItemChange(index, 'goodsTypeId', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select goods" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {goodsTypes.map((goods) => (
-                            <SelectItem key={goods.id} value={goods.id}>
-                              {goods.name}
+                      <div className="space-y-2">
+                        <Select 
+                          value={item.goodsTypeId} 
+                          onValueChange={(value) => {
+                            if (value === "add-new") {
+                              setShowNewGoodsType(true);
+                            } else {
+                              handleItemChange(index, 'goodsTypeId', value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select goods" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {goodsTypes.map((goods) => (
+                              <SelectItem key={goods.id} value={goods.id}>
+                                {goods.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="add-new" className="text-blue-600 font-medium">
+                              + Add new goods type
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          </SelectContent>
+                        </Select>
+                        
+                        {showNewGoodsType && (
+                          <div className="flex space-x-2">
+                            <Input
+                              value={newGoodsTypeName}
+                              onChange={(e) => setNewGoodsTypeName(e.target.value)}
+                              placeholder="Enter new goods type"
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              onClick={async () => {
+                                const newId = await createNewGoodsType();
+                                if (newId) {
+                                  handleItemChange(index, 'goodsTypeId', newId);
+                                }
+                              }}
+                              size="sm"
+                            >
+                              Add
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setShowNewGoodsType(false);
+                                setNewGoodsTypeName("");
+                              }}
+                              size="sm"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="p-2">
                       <Input
-                        type="number"
-                        value={item.totalWeight}
-                        onChange={(e) => handleItemChange(index, 'totalWeight', parseFloat(e.target.value) || 0)}
+                        type="text"
+                        value={item.totalWeight || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            handleItemChange(index, 'totalWeight', value === "" ? 0 : parseFloat(value));
+                          }
+                        }}
+                        placeholder="0"
                       />
                     </td>
                     <td className="p-2">
                       <Input
-                        type="number"
-                        value={item.totalQuantity}
-                        onChange={(e) => handleItemChange(index, 'totalQuantity', parseInt(e.target.value) || 0)}
+                        type="text"
+                        value={item.totalQuantity || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || /^\d+$/.test(value)) {
+                            handleItemChange(index, 'totalQuantity', value === "" ? 0 : parseInt(value));
+                          }
+                        }}
+                        placeholder="0"
                       />
                     </td>
                     <td className="p-2">
                       <Input
-                        type="number"
-                        value={item.farePerPiece}
-                        onChange={(e) => handleItemChange(index, 'farePerPiece', parseFloat(e.target.value) || 0)}
+                        type="text"
+                        value={item.farePerPiece || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || /^\d*\.?\d*$/.test(value)) {
+                            handleItemChange(index, 'farePerPiece', value === "" ? 0 : parseFloat(value));
+                          }
+                        }}
+                        placeholder="0"
                       />
                     </td>
                     <td className="p-2 font-semibold">₹{item.totalPrice.toLocaleString()}</td>

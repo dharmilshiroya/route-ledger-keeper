@@ -11,6 +11,8 @@ import { TripOutboundDetails } from "./wizard/TripOutboundDetails";
 interface CreateTripWizardProps {
   onComplete: () => void;
   onCancel: () => void;
+  tripData?: Partial<TripData>;
+  isEditing?: boolean;
 }
 
 export interface TripData {
@@ -58,10 +60,10 @@ const steps = [
   { id: 3, title: "Outbound Trip", description: "Return route & details" }
 ];
 
-export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps) {
+export function CreateTripWizard({ onComplete, onCancel, tripData, isEditing = false }: CreateTripWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [tripData, setTripData] = useState<Partial<TripData>>({
+  const [completedSteps, setCompletedSteps] = useState<number[]>(isEditing ? [1] : []);
+  const [localTripData, setLocalTripData] = useState<Partial<TripData>>(tripData || {
     inboundItems: [{
       id: `temp-1`,
       srNo: 1,
@@ -87,7 +89,7 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
   });
 
   const handleStepComplete = (stepData: Partial<TripData>) => {
-    setTripData(prev => ({ ...prev, ...stepData }));
+    setLocalTripData(prev => ({ ...prev, ...stepData }));
     
     if (!completedSteps.includes(currentStep)) {
       setCompletedSteps(prev => [...prev, currentStep]);
@@ -137,7 +139,7 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
       <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardTitle className="text-2xl font-bold text-center text-gray-800">
-            Create New Trip
+            {isEditing ? "Edit Trip" : "Create New Trip"}
           </CardTitle>
           
           <div className="flex justify-center mt-6">
@@ -191,7 +193,7 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
                 size="sm"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
-                Complete Trip Creation
+                {isEditing ? "Complete Trip Update" : "Complete Trip Creation"}
               </Button>
             </div>
           )}
@@ -200,25 +202,28 @@ export function CreateTripWizard({ onComplete, onCancel }: CreateTripWizardProps
         <CardContent className="p-6">
           {currentStep === 1 && (
             <TripBasicDetails
-              data={tripData}
+              data={localTripData}
               onNext={handleStepComplete}
               onCancel={onCancel}
+              isEditing={isEditing}
             />
           )}
           
           {currentStep === 2 && (
             <TripInboundDetails
-              data={tripData}
+              data={localTripData}
               onNext={handleStepComplete}
               onPrevious={handlePrevious}
+              isEditing={isEditing}
             />
           )}
           
           {currentStep === 3 && (
             <TripOutboundDetails
-              data={tripData}
+              data={localTripData}
               onComplete={handleStepComplete}
               onPrevious={handlePrevious}
+              isEditing={isEditing}
             />
           )}
         </CardContent>
