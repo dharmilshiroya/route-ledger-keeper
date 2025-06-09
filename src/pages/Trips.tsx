@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Truck, FileText, Calendar } from "lucide-react";
+import { Plus, Search, Truck, FileText, Calendar, Eye, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { TripForm } from "@/components/trips/TripForm";
-import { TripDetails } from "@/components/trips/TripDetails";
+import { CreateTripWizard } from "@/components/trips/CreateTripWizard";
+import { TripViewDetails } from "@/components/trips/TripViewDetails";
 
 interface Trip {
   id: string;
@@ -45,9 +45,10 @@ const Trips = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showTripForm, setShowTripForm] = useState(false);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-  const [showTripDetails, setShowTripDetails] = useState(false);
+  const [showTripView, setShowTripView] = useState(false);
+  const [showTripEdit, setShowTripEdit] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -93,25 +94,31 @@ const Trips = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 border-green-200";
       case "completed":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800 border-blue-200";
       case "cancelled":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 text-red-800 border-red-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   const handleTripCreated = () => {
-    setShowTripForm(false);
+    setShowCreateWizard(false);
     fetchTrips();
-    toast.success('Trip created successfully');
+    toast.success('Trip created successfully! 🎉');
   };
 
-  const handleViewDetails = (trip: Trip) => {
+  const handleViewTrip = (trip: Trip) => {
     setSelectedTrip(trip);
-    setShowTripDetails(true);
+    setShowTripView(true);
+  };
+
+  const handleEditTrip = (trip: Trip) => {
+    setSelectedTrip(trip);
+    setShowTripEdit(true);
+    setShowTripView(false);
   };
 
   const calculateTripTotals = (trip: Trip) => {
@@ -133,15 +140,15 @@ const Trips = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Trip Management</h1>
-          <p className="text-gray-600">Manage inbound and outbound trips with detailed bill book entries</p>
+          <p className="text-gray-600">Streamlined trip creation and management with detailed tracking</p>
         </div>
-        <Button onClick={() => setShowTripForm(true)} className="flex items-center space-x-2">
+        <Button onClick={() => setShowCreateWizard(true)} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700">
           <Plus className="h-4 w-4" />
-          <span>New Trip</span>
+          <span>Schedule New Trip</span>
         </Button>
       </div>
 
-      <Card>
+      <Card className="border-0 shadow-md">
         <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -149,7 +156,7 @@ const Trips = () => {
               placeholder="Search trips by number, driver, or vehicle..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
         </CardContent>
@@ -157,70 +164,81 @@ const Trips = () => {
 
       <div className="space-y-4">
         {filteredTrips.map((trip) => (
-          <Card key={trip.id} className="hover:shadow-lg transition-shadow">
+          <Card key={trip.id} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
             <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <Truck className="h-5 w-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold">Trip #{trip.trip_number}</h3>
-                    <Badge className={getStatusColor(trip.status)}>
-                      {trip.status}
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Truck className="h-6 w-6 text-blue-600" />
+                    <h3 className="text-xl font-bold text-gray-900">Trip #{trip.trip_number}</h3>
+                    <Badge className={`${getStatusColor(trip.status)} border font-medium`}>
+                      {trip.status.toUpperCase()}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                    <div>
-                      <span className="font-medium">Vehicle:</span> {trip.vehicles?.license_plate || "Not assigned"}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <Truck className="h-4 w-4 text-gray-500" />
+                      <span className="text-gray-600">Vehicle:</span>
+                      <span className="font-medium">{trip.vehicles?.license_plate || "Not assigned"}</span>
                     </div>
-                    <div>
-                      <span className="font-medium">Local Driver:</span> {
-                        trip.local_driver ? 
-                        `${trip.local_driver.first_name} ${trip.local_driver.last_name}` : 
-                        "Not assigned"
-                      }
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4 text-blue-500" />
+                      <span className="text-gray-600">Inbound:</span>
+                      <span className="font-medium">{trip.inbound_trips?.length || 0} trip(s)</span>
                     </div>
-                    <div>
-                      <span className="font-medium">Route Driver:</span> {
-                        trip.route_driver ? 
-                        `${trip.route_driver.first_name} ${trip.route_driver.last_name}` : 
-                        "Not assigned"
-                      }
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4 text-orange-500" />
+                      <span className="text-gray-600">Outbound:</span>
+                      <span className="font-medium">{trip.outbound_trips?.length || 0} trip(s)</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 text-sm">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-600">Local Driver:</span>
+                      <span className="font-medium">
+                        {trip.local_driver ? `${trip.local_driver.first_name} ${trip.local_driver.last_name}` : "Not assigned"}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-600">Route Driver:</span>
+                      <span className="font-medium">
+                        {trip.route_driver ? `${trip.route_driver.first_name} ${trip.route_driver.last_name}` : "Not assigned"}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-green-600">
+                
+                <div className="text-right ml-6">
+                  <div className="text-3xl font-bold text-green-600 mb-1">
                     ₹{calculateTripTotals(trip).toLocaleString()}
                   </div>
                   <div className="text-sm text-gray-500">Total Revenue</div>
+                  <div className="flex items-center text-xs text-gray-400 mt-1">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {new Date(trip.created_at).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="flex items-center space-x-2 text-sm">
-                  <FileText className="h-4 w-4 text-blue-500" />
-                  <span>Inbound Trips: {trip.inbound_trips?.length || 0}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm">
-                  <FileText className="h-4 w-4 text-orange-500" />
-                  <span>Outbound Trips: {trip.outbound_trips?.length || 0}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm">
-                  <Calendar className="h-4 w-4 text-gray-500" />
-                  <span>Created: {new Date(trip.created_at).toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => handleViewDetails(trip)}
+                  onClick={() => handleViewTrip(trip)}
+                  className="flex items-center space-x-1 hover:bg-blue-50 hover:border-blue-300"
                 >
-                  View Details
+                  <Eye className="h-4 w-4" />
+                  <span>View Details</span>
                 </Button>
-                <Button size="sm">
-                  Manage Trip
+                <Button 
+                  size="sm"
+                  onClick={() => handleEditTrip(trip)}
+                  className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Edit Trip</span>
                 </Button>
               </div>
             </CardContent>
@@ -229,29 +247,34 @@ const Trips = () => {
       </div>
 
       {filteredTrips.length === 0 && !loading && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">No trips found. Create your first trip to get started.</p>
+        <Card className="border-2 border-dashed border-gray-200">
+          <CardContent className="text-center py-12">
+            <Truck className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No trips found</h3>
+            <p className="text-gray-500 mb-4">Get started by scheduling your first trip</p>
+            <Button onClick={() => setShowCreateWizard(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Schedule New Trip
+            </Button>
           </CardContent>
         </Card>
       )}
 
-      {showTripForm && (
-        <TripForm
-          onSubmit={handleTripCreated}
-          onCancel={() => setShowTripForm(false)}
+      {showCreateWizard && (
+        <CreateTripWizard
+          onComplete={handleTripCreated}
+          onCancel={() => setShowCreateWizard(false)}
         />
       )}
 
-      {showTripDetails && selectedTrip && (
-        <TripDetails
+      {showTripView && selectedTrip && (
+        <TripViewDetails
           trip={selectedTrip}
           onClose={() => {
-            setShowTripDetails(false);
+            setShowTripView(false);
             setSelectedTrip(null);
           }}
-          onTripUpdated={fetchTrips}
+          onEdit={() => handleEditTrip(selectedTrip)}
         />
       )}
     </div>

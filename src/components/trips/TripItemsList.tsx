@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +57,6 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       setLoading(true);
       const tableName = type === "inbound" ? "inbound_trips" : "outbound_trips";
       
-      // Use rpc or simple query to avoid type inference issues
       const response = await supabase
         .from(tableName)
         .select('*')
@@ -67,9 +65,8 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
 
       if (response.error) throw response.error;
       
-      // Direct mapping without complex inference
-      const rawData = response.data as any[];
-      const mappedData: SubTrip[] = rawData.map(item => ({
+      const rawData = response.data || [];
+      const mappedData: SubTrip[] = rawData.map((item: any) => ({
         id: item.id,
         date: item.date,
         source: item.source,
@@ -97,7 +94,6 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
       const tableName = type === "inbound" ? "inbound_trip_items" : "outbound_trip_items";
       const foreignKey = type === "inbound" ? "inbound_trip_id" : "outbound_trip_id";
       
-      // Get items with explicit any casting to avoid inference
       const itemsResponse = await supabase
         .from(tableName)
         .select('*')
@@ -106,10 +102,9 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
 
       if (itemsResponse.error) throw itemsResponse.error;
 
-      const rawItemsData = itemsResponse.data as any[];
+      const rawItemsData = itemsResponse.data || [];
       
-      // Get goods types separately
-      const goodsTypeIds = rawItemsData.map(item => item.goods_type_id).filter(Boolean);
+      const goodsTypeIds = rawItemsData.map((item: any) => item.goods_type_id).filter(Boolean);
       let goodsTypesMap: Record<string, string> = {};
       
       if (goodsTypeIds.length > 0) {
@@ -119,16 +114,15 @@ export function TripItemsList({ tripId, type }: TripItemsListProps) {
           .in('id', goodsTypeIds);
           
         if (!goodsResponse.error && goodsResponse.data) {
-          const rawGoodsData = goodsResponse.data as any[];
-          goodsTypesMap = rawGoodsData.reduce((acc, goods) => {
+          const rawGoodsData = goodsResponse.data || [];
+          goodsTypesMap = rawGoodsData.reduce((acc: any, goods: any) => {
             acc[goods.id] = goods.name;
             return acc;
           }, {} as Record<string, string>);
         }
       }
 
-      // Direct mapping without type inference
-      const mappedItems: TripItem[] = rawItemsData.map(item => ({
+      const mappedItems: TripItem[] = rawItemsData.map((item: any) => ({
         id: item.id,
         sr_no: item.sr_no,
         customer_name: item.customer_name,
