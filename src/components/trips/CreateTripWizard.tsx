@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, ArrowLeft, ArrowRight, CheckCircle } from "lucide-react";
+import { Check, ArrowLeft, ArrowRight, CheckCircle, X } from "lucide-react";
 import { TripBasicDetails } from "./wizard/TripBasicDetails";
 import { TripInboundDetails } from "./wizard/TripInboundDetails";
 import { TripOutboundDetails } from "./wizard/TripOutboundDetails";
@@ -135,30 +135,36 @@ export function CreateTripWizard({ onComplete, onCancel, tripData, isEditing = f
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardTitle className="text-2xl font-bold text-center text-gray-800">
-            {isEditing ? "Edit Trip" : "Create New Trip"}
-          </CardTitle>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto card-elevated animate-scale-in">
+        <CardHeader className="border-b border-border/50 bg-gradient-subtle">
+          <div className="flex items-center justify-between mb-4">
+            <CardTitle className="text-2xl font-bold text-foreground">
+              {isEditing ? "Edit Trip" : "Create New Trip"}
+            </CardTitle>
+            <Button variant="ghost" size="sm" onClick={onCancel} className="hover:bg-muted/50">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
           
-          <div className="flex justify-center mt-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex justify-center mt-8">
+            <div className="flex items-center space-x-6">
               {steps.map((step, index) => (
                 <div key={step.id} className="flex items-center">
                   <div className="flex flex-col items-center">
                     <button
                       onClick={() => handleStepClick(step.id)}
                       disabled={!isStepAccessible(step.id)}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                      className={cn(
+                        "w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 hover-scale", 
                         currentStep === step.id 
-                          ? 'bg-blue-600 border-blue-600 text-white' 
+                          ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/25' 
                           : isStepCompleted(step.id)
-                          ? 'bg-green-600 border-green-600 text-white hover:bg-green-700'
+                          ? 'bg-green-600 border-green-600 text-white hover:bg-green-700 shadow-md'
                           : isStepAccessible(step.id)
-                          ? 'bg-white border-gray-300 text-gray-500 hover:border-blue-300 hover:text-blue-500'
-                          : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                      }`}
+                          ? 'bg-card border-border text-muted-foreground hover:border-primary/50 hover:text-primary'
+                          : 'bg-muted border-muted text-muted-foreground/50 cursor-not-allowed'
+                      )}
                     >
                       {isStepCompleted(step.id) ? (
                         <Check className="h-5 w-5" />
@@ -166,19 +172,21 @@ export function CreateTripWizard({ onComplete, onCancel, tripData, isEditing = f
                         step.id
                       )}
                     </button>
-                    <div className="mt-2 text-center">
-                      <div className={`text-sm font-medium ${
-                        currentStep === step.id ? 'text-blue-600' : 'text-gray-600'
-                      }`}>
+                    <div className="mt-3 text-center">
+                      <div className={cn(
+                        "text-sm font-semibold tracking-wide",
+                        currentStep === step.id ? 'text-primary' : 'text-foreground'
+                      )}>
                         {step.title}
                       </div>
-                      <div className="text-xs text-gray-500">{step.description}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{step.description}</div>
                     </div>
                   </div>
                   {index < steps.length - 1 && (
-                    <div className={`w-16 h-0.5 mx-4 mt-[-20px] ${
-                      isStepCompleted(step.id + 1) ? 'bg-green-600' : 'bg-gray-300'
-                    }`} />
+                    <div className={cn(
+                      "w-16 h-0.5 mx-6 mt-[-24px] transition-all duration-300",
+                      isStepCompleted(step.id + 1) ? 'bg-green-600' : 'bg-border'
+                    )} />
                   )}
                 </div>
               ))}
@@ -186,10 +194,10 @@ export function CreateTripWizard({ onComplete, onCancel, tripData, isEditing = f
           </div>
           
           {canCompleteTrip() && (
-            <div className="flex justify-center mt-4">
+            <div className="flex justify-center mt-6">
               <Button 
                 onClick={handleFinalSubmit}
-                className="bg-green-600 hover:bg-green-700"
+                className="btn-gradient hover-lift shadow-lg"
                 size="sm"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -199,7 +207,7 @@ export function CreateTripWizard({ onComplete, onCancel, tripData, isEditing = f
           )}
         </CardHeader>
 
-        <CardContent className="p-6">
+        <CardContent className="p-8 bg-gradient-subtle">
           {currentStep === 1 && (
             <TripBasicDetails
               data={localTripData}

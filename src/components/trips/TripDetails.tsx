@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -170,7 +169,12 @@ export function TripDetails({ trip, onClose, onTripUpdated }: TripDetailsProps) 
                   Add Inbound Trip
                 </Button>
               </div>
-              <TripItemsList tripId={trip.id} type="inbound" />
+              <TripItemsList 
+                subTripId={trip.inbound_trips?.[0]?.id || ''} 
+                type="inbound" 
+                items={[]}
+                onRefresh={onTripUpdated}
+              />
             </TabsContent>
 
             <TabsContent value="outbound" className="space-y-4">
@@ -181,7 +185,12 @@ export function TripDetails({ trip, onClose, onTripUpdated }: TripDetailsProps) 
                   Add Outbound Trip
                 </Button>
               </div>
-              <TripItemsList tripId={trip.id} type="outbound" />
+              <TripItemsList 
+                subTripId={trip.outbound_trips?.[0]?.id || ''} 
+                type="outbound" 
+                items={[]}
+                onRefresh={onTripUpdated}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
