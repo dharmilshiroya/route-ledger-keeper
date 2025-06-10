@@ -31,25 +31,16 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner 
-        position="top-right" 
-        toastOptions={{
-          style: {
-            background: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            color: 'hsl(var(--card-foreground))',
-          },
-        }}
-      />
+      <Sonner position="top-right" />
       <BrowserRouter>
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/*" element={
               <ProtectedRoute>
-                <div className="min-h-screen bg-gradient-subtle">
+                <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
                   <Navigation />
-                  <main className="content-container">
+                  <main className="container mx-auto px-4 py-8 max-w-7xl">
                     <div className="animate-fade-in">
                       <Routes>
                         <Route path="/" element={<Dashboard />} />
